@@ -4,10 +4,11 @@ set_option autoImplicit false
 /-!
 # The degree-3 sharpness example, kernel-checked
 
-Two agents with identical additive values $3,2,2,0$ on goods $a,b,c,d$ (each agent has three relevant
-goods, so this is outside the 2-relevant class). Exactly two of the sixteen allocations are strongly
-EFX₀, namely $(\{a,d\},\{b,c\})$ and its mirror image, and in both an agent holds two relevant goods —
-which is why the one-good-per-agent framework cannot extend to three relevant goods.
+Two agents with identical additive values $3,2,2,0$ on goods $a,b,c,d$ (each agent has three
+relevant goods, so this is outside the 2-relevant class). Exactly two of the sixteen allocations are
+strongly EFX₀, namely $(\{a,d\},\{b,c\})$ and its mirror image, and in both an agent holds two
+relevant goods — which is why the one-good-per-agent framework cannot extend to three relevant
+goods.
 -/
 
 namespace MRDDeg3
@@ -28,7 +29,8 @@ def decode (k : Fin 16) : Alloc4
   | ⟨_, _⟩ => ⟨(k.val / 8) % 2, Nat.mod_lt _ (by decide)⟩
 
 def encode (X : Alloc4) : Fin 16 :=
-  ⟨(X ⟨0, by decide⟩).val + 2 * (X ⟨1, by decide⟩).val + 4 * (X ⟨2, by decide⟩).val + 8 * (X ⟨3, by decide⟩).val,
+  ⟨(X ⟨0, by decide⟩).val + 2 * (X ⟨1, by decide⟩).val + 4 * (X ⟨2, by decide⟩).val +
+      8 * (X ⟨3, by decide⟩).val,
    by
      have h0 := (X ⟨0, by decide⟩).isLt
      have h1 := (X ⟨1, by decide⟩).isLt
@@ -95,21 +97,35 @@ theorem no_thin_shape (X : Alloc4) (hX : I3.EFX0 X) :
   rcases (sharp X).1 hX with rfl | rfl
   · -- `X1`: goods 0,3 to agent 0 and goods 1,2 to agent 1
     rcases s with ⟨_ | _ | n, hn⟩
-    · exact absurd (hs ⟨1, by decide⟩ (by intro h; cases h) ⟨1, by decide⟩ ⟨2, by decide⟩ (by decide) (by decide)) (by decide)
-    · exact absurd (hs ⟨0, by decide⟩ (by intro h; cases h) ⟨0, by decide⟩ ⟨3, by decide⟩ (by decide) (by decide)) (by decide)
+    · exact absurd
+        (hs ⟨1, by decide⟩ (by intro h; cases h) ⟨1, by decide⟩ ⟨2, by decide⟩
+          (by decide) (by decide))
+        (by decide)
+    · exact absurd
+        (hs ⟨0, by decide⟩ (by intro h; cases h) ⟨0, by decide⟩ ⟨3, by decide⟩
+          (by decide) (by decide))
+        (by decide)
     · omega
   · -- `X2`: goods 1,2 to agent 0 and goods 0,3 to agent 1
     rcases s with ⟨_ | _ | n, hn⟩
-    · exact absurd (hs ⟨1, by decide⟩ (by intro h; cases h) ⟨0, by decide⟩ ⟨3, by decide⟩ (by decide) (by decide)) (by decide)
-    · exact absurd (hs ⟨0, by decide⟩ (by intro h; cases h) ⟨1, by decide⟩ ⟨2, by decide⟩ (by decide) (by decide)) (by decide)
+    · exact absurd
+        (hs ⟨1, by decide⟩ (by intro h; cases h) ⟨0, by decide⟩ ⟨3, by decide⟩
+          (by decide) (by decide))
+        (by decide)
+    · exact absurd
+        (hs ⟨0, by decide⟩ (by intro h; cases h) ⟨1, by decide⟩ ⟨2, by decide⟩
+          (by decide) (by decide))
+        (by decide)
     · omega
 
 /-- In every EFX₀ allocation of this instance some agent holds two of its relevant goods. -/
 theorem two_relevant_goods (X : Alloc4) (hX : I3.EFX0 X) :
     ∃ i : Fin 2, ∃ g g' : Fin 4, g ≠ g' ∧ X g = i ∧ X g' = i ∧ 0 < I3.v i g ∧ 0 < I3.v i g' := by
   rcases (sharp X).1 hX with rfl | rfl
-  · exact ⟨⟨1, by decide⟩, ⟨1, by decide⟩, ⟨2, by decide⟩, by decide, by decide, by decide, by decide, by decide⟩
-  · exact ⟨⟨0, by decide⟩, ⟨1, by decide⟩, ⟨2, by decide⟩, by decide, by decide, by decide, by decide, by decide⟩
+  · exact ⟨⟨1, by decide⟩, ⟨1, by decide⟩, ⟨2, by decide⟩,
+      by decide, by decide, by decide, by decide, by decide⟩
+  · exact ⟨⟨0, by decide⟩, ⟨1, by decide⟩, ⟨2, by decide⟩,
+      by decide, by decide, by decide, by decide, by decide⟩
 
 end MRDDeg3
 

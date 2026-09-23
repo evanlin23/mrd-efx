@@ -7,10 +7,11 @@ set_option autoImplicit false
 Each agent `i` has two slots `a i, b i : Fin m` (equal if it cares about one good only) and a value
 table `f i : Bool → Bool → Nat` giving the value of a bundle according to whether it contains `a i`
 and whether it contains `b i`. Monotonicity: `f i false false = 0` and both singleton values are at
-most the pair value. This covers additive, substitute and complementary preferences on the two goods.
+most the pair value. This covers additive, substitute and complementary preferences on the two
+goods.
 
-Algorithm: one greedy pass in index order — an agent takes its most valuable available slot among the
-eligible ones (a slot is eligible if its singleton value is positive, or if the agent is
+Algorithm: one greedy pass in index order — an agent takes its most valuable available slot among
+the eligible ones (a slot is eligible if its singleton value is positive, or if the agent is
 *complementary*, i.e. both singleton values are zero but the pair is worth something); then the
 unassigned goods are dumped on an unassigned agent if there is one, else on the last agent.
 -/
@@ -40,6 +41,8 @@ def sv (i : Fin I.n) (g : Fin I.m) : Nat := I.f i (decide (g = I.a i)) (decide (
 def has (X : I.Alloc) (j : Fin I.n) (ex : Option (Fin I.m)) (g : Fin I.m) : Bool :=
   decide (X g = j ∧ ex ≠ some g)
 
+/-- Value of bundle `j` to agent `i` with `ex` removed: the table entry for which of the two slots
+are present. -/
 def bundleVal (X : I.Alloc) (i j : Fin I.n) (ex : Option (Fin I.m)) : Nat :=
   I.f i (I.has X j ex (I.a i)) (I.has X j ex (I.b i))
 
@@ -48,6 +51,7 @@ def EFX0 (X : I.Alloc) : Prop :=
   ∀ i j : Fin I.n, i ≠ j → ∀ g : Fin I.m, X g = j →
     I.bundleVal X i j (some g) ≤ I.bundleVal X i i none
 
+/-- A good is relevant to `i` iff it is one of its two slots. -/
 def Rel (i : Fin I.n) (g : Fin I.m) : Prop := g = I.a i ∨ g = I.b i
 
 /-- Irrelevant goods have singleton value zero. -/
@@ -68,12 +72,15 @@ theorem sv_ab (i : Fin I.n) (hab : I.a i = I.b i) : I.sv i (I.a i) = I.f i true 
 
 /-- Complementary agent: worthless singletons, valuable pair. -/
 def complB (i : Fin I.n) : Bool :=
-  decide (I.a i ≠ I.b i) && decide (I.sv i (I.a i) = 0) && decide (I.sv i (I.b i) = 0) && decide (0 < I.f i true true)
+  decide (I.a i ≠ I.b i) && decide (I.sv i (I.a i) = 0) && decide (I.sv i (I.b i) = 0) &&
+    decide (0 < I.f i true true)
 
 end MInst
 
 /-! ## Partial assignments and the dump step -/
 
+/-- A partial injective assignment of relevant goods to agents: each agent holds at most one good,
+which must be one of its slots, and no good is held twice. -/
 structure PA (I : MInst) where
   ρ : Fin I.n → Option (Fin I.m)
   rel : ∀ i g, ρ i = some g → I.Rel i g
@@ -106,12 +113,14 @@ theorem holder_none (g : Fin I.m) (h : A.holder g = none) : A.Unassigned g := by
   simp at this
   exact this hi
 
+/-- The dump: held goods stay with their holders; every unassigned good goes to the sink `s`. -/
 def dump (s : Fin I.n) : I.Alloc := fun g =>
   match A.holder g with
   | some j => j
   | none => s
 
-theorem dump_eq_iff (s j : Fin I.n) (hjs : j ≠ s) (g : Fin I.m) : A.dump s g = j ↔ A.ρ j = some g := by
+theorem dump_eq_iff (s j : Fin I.n) (hjs : j ≠ s) (g : Fin I.m) :
+    A.dump s g = j ↔ A.ρ j = some g := by
   unfold dump
   cases hh : A.holder g with
   | some j' =>
@@ -143,8 +152,9 @@ theorem dump_self_iff (s : Fin I.n) (g : Fin I.m) :
     · intro _; exact Or.inr (A.holder_none g hh)
     · intro _; rfl
 
-/-- Invariants. -/
+/-- (P1): every positively valued slot of an unassigned agent is held by somebody. -/
 def P1 : Prop := ∀ i, A.ρ i = none → ∀ g, I.Rel i g → 0 < I.sv i g → ∃ j, A.ρ j = some g
+/-- (P2): an assigned agent values its own good at least as much as any unassigned good. -/
 def P2 : Prop := ∀ i g, A.ρ i = some g → ∀ g', A.Unassigned g' → I.sv i g' ≤ I.sv i g
 /-- No unassigned agent has both goods free while valuing the pair positively. -/
 def Cfix : Prop := ∀ i, A.ρ i = none → I.a i ≠ I.b i → A.Unassigned (I.a i) → A.Unassigned (I.b i) →
@@ -228,7 +238,8 @@ theorem dump_efx0 (hP1 : A.P1) (hP2 : A.P2) (hC : A.Cfix) (s : Fin I.n)
       rcases this with hs' | hun
       · exact hij (A.inj i s g' hg' hs')
       · exact hun i hg'
-    cases ha : I.has (A.dump s) s (some g) (I.a i) <;> cases hb : I.has (A.dump s) s (some g) (I.b i)
+    cases ha : I.has (A.dump s) s (some g) (I.a i) <;>
+      cases hb : I.has (A.dump s) s (some g) (I.b i)
     · rw [I.f00]; exact Nat.zero_le _
     · -- only b is there
       by_cases hab : I.a i = I.b i
@@ -301,14 +312,16 @@ theorem freeB_iff (ρ : Rho I) (g : Fin I.m) : freeB I ρ g = true ↔ ∀ i, ρ
 /-- Slot `g` of agent `i` is eligible: positive singleton value, or `i` is complementary. -/
 def eligB (i : Fin I.n) (g : Fin I.m) : Bool := decide (0 < I.sv i g) || I.complB i
 
-def assignTo (ρ : Rho I) (i : Fin I.n) (g : Fin I.m) : Rho I := fun k => if k = i then some g else ρ k
+def assignTo (ρ : Rho I) (i : Fin I.n) (g : Fin I.m) : Rho I :=
+  fun k => if k = i then some g else ρ k
 
 /-- One greedy step: take the most valuable free eligible slot (slot `a` on ties). -/
 def step (ρ : Rho I) (i : Fin I.n) : Rho I :=
   let ca := freeB I ρ (I.a i) && eligB I i (I.a i)
   let cb := freeB I ρ (I.b i) && eligB I i (I.b i)
   match ca, cb with
-  | true, true => if I.sv i (I.a i) < I.sv i (I.b i) then assignTo I ρ i (I.b i) else assignTo I ρ i (I.a i)
+  | true, true =>
+    if I.sv i (I.a i) < I.sv i (I.b i) then assignTo I ρ i (I.b i) else assignTo I ρ i (I.a i)
   | true, false => assignTo I ρ i (I.a i)
   | false, true => assignTo I ρ i (I.b i)
   | false, false => ρ
@@ -319,6 +332,7 @@ def phase1Upto : (t : Nat) → t ≤ I.n → Rho I
 
 def phase1 : Rho I := phase1Upto I I.n (Nat.le_refl _)
 
+/-- Invariants of the greedy pass after the first `t` agents have been processed. -/
 structure InvUpto (t : Nat) (ρ : Rho I) : Prop where
   rel : ∀ i g, ρ i = some g → I.Rel i g
   inj : ∀ i j g, ρ i = some g → ρ j = some g → i = j
@@ -331,12 +345,14 @@ structure InvUpto (t : Nat) (ρ : Rho I) : Prop where
 
 /-- What one step guarantees, stated once for both slots. -/
 theorem step_facts (ρ : Rho I) (i : Fin I.n) (_hi : ρ i = none) :
-    (step I ρ i = ρ ∧ (freeB I ρ (I.a i) && eligB I i (I.a i)) = false ∧ (freeB I ρ (I.b i) && eligB I i (I.b i)) = false) ∨
+    (step I ρ i = ρ ∧ (freeB I ρ (I.a i) && eligB I i (I.a i)) = false ∧
+      (freeB I ρ (I.b i) && eligB I i (I.b i)) = false) ∨
     (∃ g, step I ρ i = assignTo I ρ i g ∧ I.Rel i g ∧ (∀ j, ρ j ≠ some g) ∧ eligB I i g = true ∧
       ∀ g', I.Rel i g' → (∀ j, ρ j ≠ some g') → eligB I i g' = true → I.sv i g' ≤ I.sv i g) := by
   unfold step
   simp only []
-  cases hca : (freeB I ρ (I.a i) && eligB I i (I.a i)) <;> cases hcb : (freeB I ρ (I.b i) && eligB I i (I.b i))
+  cases hca : (freeB I ρ (I.a i) && eligB I i (I.a i)) <;>
+    cases hcb : (freeB I ρ (I.b i) && eligB I i (I.b i))
   · exact Or.inl ⟨rfl, rfl, rfl⟩
   · -- only b
     simp only [Bool.and_eq_true] at hcb
@@ -404,7 +420,8 @@ theorem step_inv (t : Nat) (ρ : Rho I) (hρ : InvUpto I t ρ) (i : Fin I.n) (hi
         apply Classical.byContradiction
         intro hne
         have hpos : 0 < I.f i' true true := Nat.pos_of_ne_zero hne
-        -- either some singleton is positive (then eligible, then held: contradiction) or complementary
+        -- either some singleton is positive (then eligible, then held: contradiction)
+        -- or complementary
         by_cases hpa : 0 < I.sv i' (I.a i')
         · obtain ⟨j, hj⟩ := hnotfree (I.a i') (Or.inl rfl) (elig_of_pos I i' _ hpa)
           exact hua j hj
@@ -475,10 +492,12 @@ theorem step_inv (t : Nat) (ρ : Rho I) (hρ : InvUpto I t ρ) (i : Fin I.n) (hi
         apply hρ.cfix i' hlt' h0 hab
         · intro j hj
           have hj' : j ≠ i := by intro ee; rw [ee, hnone] at hj; cases hj
-          exact hua j (by show (if j = i then some g else ρ j) = some (I.a i'); rw [ifn hj']; exact hj)
+          exact hua j
+            (by show (if j = i then some g else ρ j) = some (I.a i'); rw [ifn hj']; exact hj)
         · intro j hj
           have hj' : j ≠ i := by intro ee; rw [ee, hnone] at hj; cases hj
-          exact hub j (by show (if j = i then some g else ρ j) = some (I.b i'); rw [ifn hj']; exact hj)
+          exact hub j
+            (by show (if j = i then some g else ρ j) = some (I.b i'); rw [ifn hj']; exact hj)
     · intro k hle
       have e : k ≠ i := by intro ee; rw [ee] at hle; omega
       show (if k = i then some g else ρ k) = none
@@ -502,7 +521,8 @@ theorem phase1Upto_inv : ∀ (t : Nat) (h : t ≤ I.n), InvUpto I t (phase1Upto 
   | 0, _ =>
     ⟨fun _ _ hk => by simp [phase1Upto] at hk, fun _ _ _ hk => by simp [phase1Upto] at hk,
      fun _ hi => absurd hi (Nat.not_lt_zero _), fun _ _ hk => by simp [phase1Upto] at hk,
-     fun _ hi => absurd hi (Nat.not_lt_zero _), fun _ _ => rfl, fun _ _ hk => by simp [phase1Upto] at hk⟩
+     fun _ hi => absurd hi (Nat.not_lt_zero _), fun _ _ => rfl,
+     fun _ _ hk => by simp [phase1Upto] at hk⟩
   | t+1, h => step_inv I t _ (phase1Upto_inv t (Nat.le_of_succ_le h)) ⟨t, h⟩ rfl
 
 def toPA (ρ : Rho I) (h : InvUpto I I.n ρ) : PA I := ⟨ρ, h.rel, h.inj⟩
@@ -521,7 +541,8 @@ def mrdM (hn : 0 < I.n) : I.Alloc :=
   | some s => dumpE I (phase1 I) s
   | none => dumpE I (phase1 I) (lastAgent I hn)
 
-theorem dumpE_eq (ρ : Rho I) (h : InvUpto I I.n ρ) (s : Fin I.n) : dumpE I ρ s = (toPA I ρ h).dump s := rfl
+theorem dumpE_eq (ρ : Rho I) (h : InvUpto I I.n ρ) (s : Fin I.n) :
+    dumpE I ρ s = (toPA I ρ h).dump s := rfl
 
 /-- **End-to-end theorem for general monotone two-good valuations.** -/
 theorem mrdM_efx0 (hn : 0 < I.n) : I.EFX0 (mrdM I hn) := by
@@ -566,18 +587,19 @@ theorem mrdM_efx0 (hn : 0 < I.n) : I.EFX0 (mrdM I hn) := by
 
 end Exec
 
-
 /-! ## A sound checker and a kernel-checked example with a complementary agent -/
 
 namespace MInst
 variable (I : MInst)
 
+/-- Boolean checker for strong EFX₀ in the monotone model. -/
 def efx0Check (X : I.Alloc) : Bool :=
   allFin I.n fun i => allFin I.n fun j =>
     if i = j then true else
     allFin I.m fun g =>
       if X g = j then decide (I.bundleVal X i j (some g) ≤ I.bundleVal X i i none) else true
 
+/-- Soundness of the checker: `true` implies strong EFX₀. -/
 theorem efx0Check_sound (X : I.Alloc) (h : I.efx0Check X = true) : I.EFX0 X := by
   intro i j hij g hg
   have h1 := allFin_true _ _ h i
@@ -603,18 +625,35 @@ def exM : MInst where
     | 2, true, false => 2 | 2, false, true => 4 | 2, true, true => 6
     | _, _, _ => 0
   f00 := by intro i; match i with | ⟨0, _⟩ => rfl | ⟨1, _⟩ => rfl | ⟨2, _⟩ => rfl
-  mono_a := by intro i; match i with | ⟨0, _⟩ => decide +revert | ⟨1, _⟩ => decide +revert | ⟨2, _⟩ => decide +revert
-  mono_b := by intro i; match i with | ⟨0, _⟩ => decide +revert | ⟨1, _⟩ => decide +revert | ⟨2, _⟩ => decide +revert
+  mono_a := by
+    intro i
+    match i with
+    | ⟨0, _⟩ => decide +revert
+    | ⟨1, _⟩ => decide +revert
+    | ⟨2, _⟩ => decide +revert
+  mono_b := by
+    intro i
+    match i with
+    | ⟨0, _⟩ => decide +revert
+    | ⟨1, _⟩ => decide +revert
+    | ⟨2, _⟩ => decide +revert
 
+/-- The algorithm's output on `exM` is strongly EFX₀, kernel-checked through the sound checker. -/
 theorem exM_ok : exM.EFX0 (mrdM exM (by decide)) := MInst.efx0Check_sound _ _ (by decide)
 
-#eval (List.range 5).map fun g => (mrdM exM (by decide) ⟨g % 5, Nat.mod_lt _ (by decide)⟩).val
+/-- The allocation computed on `exM`, good by good: goods `0` and `1` go to agents `0` and `1`, and
+goods `2`, `3`, `4` to agent `2` (kernel-checked). -/
+theorem exM_alloc :
+    (List.range 5).map (fun g => (mrdM exM (by decide) ⟨g % 5, Nat.mod_lt _ (by decide)⟩).val)
+      = [0, 1, 2, 2, 2] := by
+  decide
 
 /-! ## Shape and existence, as in the additive development -/
 
 section Shape
 variable (I : MInst)
 
+/-- Every bundle other than the sink's contains at most one good. -/
 theorem dump_thin_other (A : PA I) (s j : Fin I.n) (hjs : j ≠ s) (g g' : Fin I.m)
     (hg : A.dump s g = j) (hg' : A.dump s g' = j) : g = g' := by
   have e1 := (A.dump_eq_iff s j hjs g).mp hg
@@ -629,7 +668,8 @@ theorem mrdM_shape (hn : 0 < I.n) :
   unfold mrdM
   cases hf : firstUnassigned I (phase1 I) with
   | some s =>
-    show ∃ s', ∀ j, j ≠ s' → ∀ g g', dumpE I (phase1 I) s g = j → dumpE I (phase1 I) s g' = j → g = g'
+    show ∃ s', ∀ j, j ≠ s' → ∀ g g',
+      dumpE I (phase1 I) s g = j → dumpE I (phase1 I) s g' = j → g = g'
     refine ⟨s, fun j hjs g g' hg hg' => ?_⟩
     rw [dumpE_eq I _ hinv s] at hg hg'
     exact dump_thin_other I _ s j hjs g g' hg hg'
@@ -640,8 +680,9 @@ theorem mrdM_shape (hn : 0 < I.n) :
     rw [dumpE_eq I _ hinv (lastAgent I hn)] at hg hg'
     exact dump_thin_other I _ (lastAgent I hn) j hjs g g' hg hg'
 
-/-- **Headline theorem, monotone version**: existence of a complete strongly-EFX₀ allocation in which all
-bundles but one contain at most one good, for arbitrary monotone valuations on at most two goods. -/
+/-- **Headline theorem, monotone version**: existence of a complete strongly-EFX₀ allocation in
+which all bundles but one contain at most one good, for arbitrary monotone valuations on at most two
+goods. -/
 theorem main_theorem (hn : 0 < I.n) :
     ∃ X : I.Alloc, I.EFX0 X ∧ ∃ s, ∀ j, j ≠ s → ∀ g g', X g = j → X g' = j → g = g' :=
   ⟨mrdM I hn, mrdM_efx0 I hn, mrdM_shape I hn⟩

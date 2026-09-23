@@ -1,6 +1,15 @@
 import MRD
 open MRD
 
+/-!
+# Native random-test driver
+
+Runs both verified executables (`mrdA`, the rotation-based variant, and `mrdGA`, the simplified
+algorithm) on pseudo-random 2-relevant instances and checks every output with `efx0Check`.
+Usage: `lake exe mrdtest [trials] [max agents] [max goods] [seed]`.
+-/
+
+/-- A linear congruential generator. -/
 def lcg (x : Nat) : Nat := (1103515245 * x + 12345) % 2147483648
 
 /-- Instance from a seed: each agent gets 0, 1 or 2 relevant goods with values 1..5. -/
@@ -19,11 +28,7 @@ def mkInst (seed n m : Nat) : Inst where
     else if kind ≥ 3 ∧ g.val = g2 then 1 + (lcg (h3 + 2)) % 5
     else 0
 
-def checkOne (I : Inst) : Bool :=
-  match mrdA I with
-  | some X => I.efx0Check X
-  | none => false
-
+/-- Entry point: runs both executables on random instances and reports the failure count. -/
 def main (args : List String) : IO Unit := do
   let trials := (args.head?.bind String.toNat?).getD 1000
   let nmax := ((args.drop 1).head?.bind String.toNat?).getD 7
@@ -44,4 +49,5 @@ def main (args : List String) : IO Unit := do
     match mrdGA I hn with
     | some Y => if !(I.efx0Check Y) then failures := failures + 1000
     | none => failures := failures + 1000
-  IO.println s!"trials={trials} failures={failures} (rotation variant no-output={noneCount}; simplified-algorithm failures counted x1000)"
+  IO.println (s!"trials={trials} failures={failures} " ++
+    s!"(rotation variant no-output={noneCount}; simplified-algorithm failures counted x1000)")

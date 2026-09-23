@@ -6,11 +6,11 @@ set_option autoImplicit false
 # Bridge: the additive theorem is a corollary of the general-monotone one
 
 Given a 2-relevant additive instance `I` (no agent has three distinct positively valued goods) with
-at least one good, we build the monotone instance `toM I` whose slots are the (at most two) positively
-valued goods of each agent and whose table is the corresponding sum, prove that the two bundle-value
-functions coincide on every bundle (`bundleVal_eq`), hence that the two `EFX0` predicates coincide
-(`efx0_iff`), and conclude that the monotone algorithm produces a strongly-EFX₀ allocation for `I`
-(`additive_via_monotone`).
+at least one good, we build the monotone instance `toM I` whose slots are the (at most two)
+positively valued goods of each agent and whose table is the corresponding sum, prove that the two
+bundle-value functions coincide on every bundle (`bundleVal_eq`), hence that the two `EFX0`
+predicates coincide (`efx0_iff`), and conclude that the monotone algorithm produces a strongly-EFX₀
+allocation for `I` (`additive_via_monotone`).
 -/
 
 namespace MRDBridge
@@ -27,7 +27,8 @@ theorem finSum_eq_two (k : Nat) (F : Fin k → Nat) (x y : Fin k) (hxy : x ≠ y
       · rw [ey]; simp [Ne.symm hxy]
       · simp [ex, ey, hz i ex ey]
   have h1 : finSum k (fun i => (if i = x then F x else 0) + (if i = y then F y else 0))
-      = finSum k (fun i => if i = x then F x else 0) + finSum k (fun i => if i = y then F y else 0) :=
+      = finSum k (fun i => if i = x then F x else 0) +
+        finSum k (fun i => if i = y then F y else 0) :=
     finSum_add k _ _
   rw [hsplit, h1, finSum_eq_single k _ x (fun i hi => by simp [hi]),
     finSum_eq_single k _ y (fun i hi => by simp [hi])]
@@ -38,11 +39,14 @@ variable (I : MRD.Inst)
 /-- First positively valued good of `i`, if any. -/
 def firstPos (i : Fin I.n) : Option (Fin I.m) := findFin I.m (fun g => decide (0 < I.v i g))
 
+/-- The first slot of `i`: its first positively valued good (or good `0` if it has none). -/
 def slotA (hm : 0 < I.m) (i : Fin I.n) : Fin I.m := (firstPos I i).getD ⟨0, hm⟩
 
+/-- The second slot of `i`: its next positively valued good, or `slotA` again if there is none. -/
 def slotB (hm : 0 < I.m) (i : Fin I.n) : Fin I.m :=
   (findFin I.m (fun g => decide (0 < I.v i g ∧ g ≠ slotA I hm i))).getD (slotA I hm i)
 
+/-- If `i` values some good positively, then it values `slotA` positively. -/
 theorem slotA_pos (hm : 0 < I.m) (i : Fin I.n) (g : Fin I.m) (hg : 0 < I.v i g) :
     0 < I.v i (slotA I hm i) := by
   unfold slotA
@@ -57,7 +61,8 @@ theorem slotA_pos (hm : 0 < I.m) (i : Fin I.n) (g : Fin I.m) (hg : 0 < I.v i g) 
     simpa using this
 
 /-- Every positively valued good is one of the two slots. -/
-theorem pos_slot (hI : I.TwoRelevant) (hm : 0 < I.m) (i : Fin I.n) (g : Fin I.m) (hg : 0 < I.v i g) :
+theorem pos_slot (hI : I.TwoRelevant) (hm : 0 < I.m) (i : Fin I.n) (g : Fin I.m)
+    (hg : 0 < I.v i g) :
     g = slotA I hm i ∨ g = slotB I hm i := by
   by_cases ha : g = slotA I hm i
   · exact Or.inl ha
@@ -78,6 +83,7 @@ theorem pos_slot (hI : I.TwoRelevant) (hm : 0 < I.m) (i : Fin I.n) (g : Fin I.m)
         exact hI i (slotA I hm i) b0 g (Ne.symm hb.2) (Ne.symm ha) (Ne.symm hgb)
           (slotA_pos I hm i g hg) hb.1 hg
 
+/-- Goods that are neither slot are worthless to `i`. -/
 theorem v_zero_off_slots (hI : I.TwoRelevant) (hm : 0 < I.m) (i : Fin I.n) (g : Fin I.m)
     (ha : g ≠ slotA I hm i) (hb : g ≠ slotB I hm i) : I.v i g = 0 := by
   apply Nat.eq_zero_of_not_pos

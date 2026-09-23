@@ -1,17 +1,18 @@
 /-!
 # Match–Dump for 2-relevant additive instances: a complete formal verification
 
-Core Lean 4 only (no Mathlib). Model: `n` agents, `m` goods, additive values `v i g : Nat`; a good is
-relevant to `i` iff `0 < v i g`; the instance is 2-relevant iff no agent has three distinct relevant
-goods (`twoRelevant_of_count` shows the counting form `|R_i| ≤ 2` implies this). Fairness: strong
-`EFX₀` (the removed good may be worthless to the envier).
+Core Lean 4 only (no Mathlib). Model: `n` agents, `m` goods, additive values `v i g : Nat`; a good
+is relevant to `i` iff `0 < v i g`; the instance is 2-relevant iff no agent has three distinct
+relevant goods (`twoRelevant_of_count` shows the counting form `|R_i| ≤ 2` implies this).
+Fairness: strong `EFX₀` (the removed good may be worthless to the envier).
 
 There is no `sorry` in this file. Main results (see `#print axioms` at the end):
 * `dump_efx0` – the dump step is EFX₀ for every assignment satisfying (P1),(P2) and every source;
-* `phase1_inv`, `phase1_later`, `phase1_holders` – the executable greedy Phase 1 satisfies the invariants;
-* `mrdG_efx0`, `mrdG_shape`, `exists_efx0_of_count` – the simplified algorithm (greedy, then dump on an
-  unassigned agent or else the last agent) always outputs a complete EFX₀ allocation with all bundles
-  but one of size ≤ 1; existence under the hypothesis `|R_i| ≤ 2`;
+* `phase1_inv`, `phase1_later`, `phase1_holders` – the executable greedy Phase 1 satisfies the
+  invariants;
+* `mrdG_efx0`, `mrdG_shape`, `exists_efx0_of_count` – the simplified algorithm (greedy, then dump on
+  an unassigned agent or else the last agent) always outputs a complete EFX₀ allocation with all
+  bundles but one of size ≤ 1; existence under the hypothesis `|R_i| ≤ 2`;
 * `mrd_sound`, `mrd_total_unconditional`, `mrd_correct` – the rotation-based variant is sound and
   live: after a greedy Phase 1 the envy digraph has no cycle (`findCycle_phase1`), so Phase 2 is the
   identity (`phase2_phase1`);
@@ -26,7 +27,8 @@ namespace MRD
 /-- Version-independent replacements for `if_pos` / `if_neg` (deprecated in newer Lean releases). -/
 theorem ifp {c : Prop} [Decidable c] {α : Sort _} (h : c) (a b : α) : (if c then a else b) = a := by
   simp [h]
-theorem ifn {c : Prop} [Decidable c] {α : Sort _} (h : ¬ c) (a b : α) : (if c then a else b) = b := by
+theorem ifn {c : Prop} [Decidable c] {α : Sort _} (h : ¬ c) (a b : α) :
+    (if c then a else b) = b := by
   simp [h]
 
 /-! ## Sums and searches over `Fin` -/
@@ -318,11 +320,13 @@ theorem thin_dump (hI : I.TwoRelevant) (hP1 : A.P1) (s i : Fin I.n) (his : i ≠
     have e1 : A.ρ s = some g1 := by
       rcases c1 with hs | hun
       · exact hs
-      · exact absurd r1 (by rw [A.unassigned_no_relevant_in_Z hP1 i hi g1 hun]; exact Nat.lt_irrefl 0)
+      · exact absurd r1
+          (by rw [A.unassigned_no_relevant_in_Z hP1 i hi g1 hun]; exact Nat.lt_irrefl 0)
     have e2 : A.ρ s = some g2 := by
       rcases c2 with hs | hun
       · exact hs
-      · exact absurd r2 (by rw [A.unassigned_no_relevant_in_Z hP1 i hi g2 hun]; exact Nat.lt_irrefl 0)
+      · exact absurd r2
+          (by rw [A.unassigned_no_relevant_in_Z hP1 i hi g2 hun]; exact Nat.lt_irrefl 0)
     rw [e1] at e2
     exact hne (Option.some.inj e2)
   | some h =>
@@ -378,7 +382,8 @@ theorem own_val (s i : Fin I.n) (his : i ≠ s) : I.bundleVal (A.dump s) i i non
         exact hg (Option.some.inj this).symm
       simp [this]
 
-/-- Removing a good from a singleton bundle leaves nothing: bundles of agents other than the sink. -/
+/-- Removing a good from a singleton bundle leaves nothing: bundles of agents other than the
+sink. -/
 theorem other_val (s i j : Fin I.n) (hjs : j ≠ s) (g : Fin I.m) (hg : A.dump s g = j) :
     I.bundleVal (A.dump s) i j (some g) = 0 := by
   unfold Inst.bundleVal
@@ -436,32 +441,11 @@ theorem dump_efx0 (hI : I.TwoRelevant) (hP1 : A.P1) (hP2 : A.P2)
   · rw [A.other_val s i j hjs g hg]
     exact Nat.zero_le _
 
-/-- **Branch A**: the sink is unassigned (`X_s = Z`); unassigned agents are always sources. -/
+/-- The sink is unassigned (`X_s = Z`): unassigned agents are always sources, so the dump is
+EFX₀. -/
 theorem dump_efx0_unassigned (hI : I.TwoRelevant) (hP1 : A.P1) (hP2 : A.P2)
     (s : Fin I.n) (hs : A.ρ s = none) : I.EFX0 (A.dump s) :=
   A.dump_efx0 hI hP1 hP2 s (A.unassigned_isSource s hs)
-
-/-- **Branch B**: the sink is an assigned source (`X_s = {ρ(s)} ∪ Z`). -/
-theorem dump_efx0_assigned (hI : I.TwoRelevant) (hP1 : A.P1) (hP2 : A.P2)
-    (s : Fin I.n) (g : Fin I.m) (_hs : A.ρ s = some g) (hsrc : A.IsSource s) :
-    I.EFX0 (A.dump s) :=
-  A.dump_efx0 hI hP1 hP2 s hsrc
-
-/-- **A well-founded envy relation has a source.** After Phase 2 the arc relation of `D` has no
-directed cycle; on the finite type `Fin n` that is the same as well-foundedness of `fun i j => Arc i j`,
-and a minimal element of a well-founded relation is exactly an agent nobody points at. -/
-theorem wf_has_source (hn : 0 < I.n) (hwf : WellFounded A.Arc) : ∃ s, A.IsSource s := by
-  have x : Fin I.n := ⟨0, hn⟩
-  refine hwf.induction (C := fun _ => ∃ s, A.IsSource s) x ?_
-  intro y ih
-  by_cases hy : A.IsSource y
-  · exact ⟨y, hy⟩
-  · have : ∃ i, A.Arc i y := by
-      apply Classical.byContradiction
-      intro hne
-      exact hy (fun i hi => hne ⟨i, hi⟩)
-    obtain ⟨i, hi⟩ := this
-    exact ih i hi
 
 end PAssign
 
@@ -493,7 +477,8 @@ theorem heldB_false_iff (ρ : Rho I) (g : Fin I.m) : heldB I ρ g = false ↔ �
       exact absurd this (h i')
     | none => rfl
 
-theorem heldB_true_exists (ρ : Rho I) (g : Fin I.m) (h : heldB I ρ g = true) : ∃ j, ρ j = some g := by
+theorem heldB_true_exists (ρ : Rho I) (g : Fin I.m) (h : heldB I ρ g = true) :
+    ∃ j, ρ j = some g := by
   unfold heldB at h
   cases hf : findFin I.n (fun i => decide (ρ i = some g)) with
   | some j =>
@@ -511,7 +496,10 @@ def bestUpto (ρ : Rho I) (i : Fin I.n) : (t : Nat) → t ≤ I.m → Option (Fi
     match bestUpto ρ i t (Nat.le_of_succ_le h) with
     | none => if heldB I ρ ⟨t, h⟩ = false ∧ 0 < I.v i ⟨t, h⟩ then some ⟨t, h⟩ else none
     | some g' =>
-      if heldB I ρ ⟨t, h⟩ = false ∧ 0 < I.v i ⟨t, h⟩ ∧ I.v i g' < I.v i ⟨t, h⟩ then some ⟨t, h⟩ else some g'
+      if heldB I ρ ⟨t, h⟩ = false ∧ 0 < I.v i ⟨t, h⟩ ∧ I.v i g' < I.v i ⟨t, h⟩ then
+        some ⟨t, h⟩
+      else
+        some g'
 
 theorem bestUpto_none (ρ : Rho I) (i : Fin I.n) : ∀ (t : Nat) (h : t ≤ I.m),
     bestUpto I ρ i t h = none → ∀ g : Fin I.m, g.val < t → heldB I ρ g = false → I.v i g = 0
@@ -618,7 +606,8 @@ structure InvUpto (t : Nat) (ρ : Rho I) : Prop where
   /-- Nobody prefers a good held by a later-processed agent: arcs of `D` point backwards. -/
   later : ∀ i g, ρ i = some g → ∀ j g', ρ j = some g' → i.val < j.val → I.v i g' ≤ I.v i g
   /-- Holders of a processed-but-unassigned agent's relevant goods were processed earlier. -/
-  holders : ∀ x : Fin I.n, x.val < t → ρ x = none → ∀ g, 0 < I.v x g → ∀ y, ρ y = some g → y.val < x.val
+  holders : ∀ x : Fin I.n, x.val < t → ρ x = none → ∀ g, 0 < I.v x g →
+    ∀ y, ρ y = some g → y.val < x.val
 
 theorem step_inv (t : Nat) (ρ : Rho I) (hρ : InvUpto I t ρ) (i : Fin I.n) (hi : i.val = t) :
     InvUpto I (t+1) (step I ρ i) := by
@@ -758,10 +747,12 @@ theorem step_inv (t : Nat) (ρ : Rho I) (hρ : InvUpto I t ρ) (i : Fin I.n) (hi
 theorem phase1Upto_inv : ∀ (t : Nat) (h : t ≤ I.n), InvUpto I t (phase1Upto I t h)
   | 0, _ =>
     ⟨fun _ _ hk => by simp [phase1Upto] at hk, fun _ _ _ hk => by simp [phase1Upto] at hk,
-     fun _ hi => absurd hi (Nat.not_lt_zero _), fun _ _ hk => by simp [phase1Upto] at hk, fun _ _ => rfl,
+     fun _ hi => absurd hi (Nat.not_lt_zero _), fun _ _ hk => by simp [phase1Upto] at hk,
+     fun _ _ => rfl,
      fun _ _ hk => by simp [phase1Upto] at hk, fun _ hx => absurd hx (Nat.not_lt_zero _)⟩
   | t+1, h => step_inv I t _ (phase1Upto_inv t (Nat.le_of_succ_le h)) ⟨t, h⟩ rfl
 
+/-- The greedy Phase 1 satisfies the invariants (relevance, injectivity, (P1), (P2)). -/
 theorem phase1_inv : Inv I (phase1 I) :=
   let h := phase1Upto_inv I I.n (Nat.le_refl _)
   ⟨h.rel, h.inj, fun i => h.p1 i i.isLt, h.p2⟩
@@ -862,10 +853,12 @@ theorem nonemptyB_true (C : List (Fin I.n)) (h : nonemptyB I C = true) : ∃ k, 
 
 def validRot (ρ : Rho I) (C : List (Fin I.n)) : Bool :=
   nonemptyB I C &&
-  allB I (fun k => (ρ k).isSome && (match succE I ρ k with | some j => memB I j C | none => false)) C &&
+  allB I (fun k =>
+    (ρ k).isSome && (match succE I ρ k with | some j => memB I j C | none => false)) C &&
   allB I (fun i => anyB I (fun k => decide (succE I ρ k = some i)) C) C &&
   injB I (rotate I ρ C)
 
+/-- Rotating along a cycle that passes the run-time check preserves the invariants. -/
 theorem rotate_inv (ρ : Rho I) (C : List (Fin I.n)) (hρ : Inv I ρ) (hv : validRot I ρ C = true) :
     Inv I (rotate I ρ C) := by
   simp only [validRot, Bool.and_eq_true] at hv
@@ -1084,7 +1077,8 @@ end Exec
 section Live
 variable (I : Inst)
 
-theorem allFin_of_forall (k : Nat) (p : Fin k → Bool) (h : ∀ i, p i = true) : allFin k p = true := by
+theorem allFin_of_forall (k : Nat) (p : Fin k → Bool) (h : ∀ i, p i = true) :
+    allFin k p = true := by
   unfold allFin
   cases hf : findFin k (fun i => !p i) with
   | some j =>
@@ -1105,14 +1099,16 @@ theorem rotate_none (ρ : Rho I) (C : List (Fin I.n)) (hv : validRot I ρ C = tr
   · rw [ifn hkC]
     exact hk
 
-theorem phase2_none : ∀ (fuel : Nat) (ρ : Rho I) (k : Fin I.n), ρ k = none → phase2 I fuel ρ k = none
+theorem phase2_none :
+    ∀ (fuel : Nat) (ρ : Rho I) (k : Fin I.n), ρ k = none → phase2 I fuel ρ k = none
   | 0, _, _, h => h
   | fuel+1, ρ, k, h => by
     simp only [phase2]
     cases hc : findCycle I ρ with
     | none => exact h
     | some C =>
-      show (if validRot I ρ C = true then phase2 I fuel (materialize I (rotate I ρ C)) else ρ) k = none
+      show (if validRot I ρ C = true then phase2 I fuel (materialize I (rotate I ρ C)) else ρ) k
+        = none
       by_cases hv : validRot I ρ C = true
       · rw [ifp hv]
         exact phase2_none fuel _ k (by rw [materialize_eq]; exact rotate_none I ρ C hv k h)
@@ -1139,7 +1135,8 @@ theorem hasArcE_none (ρ : Rho I) (i s : Fin I.n) (hs : ρ s = none) : hasArcE I
 /-- **Liveness in Case A**: an agent left unassigned by Phase 1 guarantees an output. -/
 theorem mrd_total_of_unassigned (i : Fin I.n) (hi : phase1 I i = none) : (mrd I).isSome = true := by
   unfold mrd
-  have h2 : phase2 I (bound I + 1) (phase1 I) i = none := phase2_none I (bound I + 1) (phase1 I) i hi
+  have h2 : phase2 I (bound I + 1) (phase1 I) i = none :=
+    phase2_none I (bound I + 1) (phase1 I) i hi
   have hsrc := sourceE_isSome I _ i (fun j => hasArcE_none I _ j i h2)
   cases hf : sourceE I (phase2 I (bound I + 1) (phase1 I)) with
   | some s => rfl
@@ -1248,9 +1245,11 @@ theorem rotate_assigned (ρ : Rho I) (C : List (Fin I.n)) (hv : validRot I ρ C 
   · rw [rotate_out I ρ C i (Bool.eq_false_iff.mpr hk)] at hi
     exact hall i hi
 
-/-- **The single remaining obligation**: on an assignment satisfying the invariants in which
-everyone is assigned and no source exists, the cycle search returns a list that passes the
-run-time check. (Exercised on every small instance by the exhaustive sweeps.) -/
+/-- Hypothesis of the fuel-based termination argument: on an assignment satisfying the invariants
+in which everyone is assigned and no source exists, the cycle search returns a list that passes
+the run-time check. It is used only by the conditional lemmas `phase2_source`, `mrd_total`,
+`mrd_total_all_assigned` and `mrdA_total`; the liveness theorem `mrd_total_unconditional` does not
+need it, because after Phase 1 there is no cycle at all (`findCycle_phase1`). -/
 def SearchOK : Prop :=
   ∀ ρ : Rho I, Inv I ρ → (∀ i, ρ i ≠ none) → sourceE I ρ = none →
     ∃ C, findCycle I ρ = some C ∧ validRot I ρ C = true
@@ -1272,12 +1271,15 @@ theorem phase2_source (hS : SearchOK I) :
         rw [hC] at hc
         cases hc
     | some C =>
-      show (sourceE I (if validRot I ρ C = true then phase2 I fuel (materialize I (rotate I ρ C)) else ρ)).isSome = true
+      show (sourceE I
+        (if validRot I ρ C = true then phase2 I fuel (materialize I (rotate I ρ C)) else ρ)).isSome
+        = true
       by_cases hv : validRot I ρ C = true
       · rw [ifp hv, materialize_eq]
         have hlt := rotate_totalU_lt I ρ C hv
         have hb := totalU_le_bound I (rotate I ρ C)
-        exact phase2_source hS fuel _ (rotate_inv I ρ C hinv hv) (rotate_assigned I ρ C hv hall) (by omega)
+        exact phase2_source hS fuel _ (rotate_inv I ρ C hinv hv) (rotate_assigned I ρ C hv hall)
+          (by omega)
       · rw [ifn hv]
         cases hs : sourceE I ρ with
         | some _ => rfl
@@ -1335,18 +1337,22 @@ def phase2A : Nat → RhoA I → RhoA I
   | 0, a => a
   | fuel+1, a =>
     match findCycle I (get I a) with
-    | some C => if validRot I (get I a) C = true then phase2A fuel (ofRho I (rotate I (get I a) C)) else a
+    | some C =>
+      if validRot I (get I a) C = true then phase2A fuel (ofRho I (rotate I (get I a) C)) else a
     | none => a
 
-theorem get_phase2A : ∀ (fuel : Nat) (a : RhoA I), get I (phase2A I fuel a) = phase2 I fuel (get I a)
+theorem get_phase2A :
+    ∀ (fuel : Nat) (a : RhoA I), get I (phase2A I fuel a) = phase2 I fuel (get I a)
   | 0, _ => rfl
   | fuel+1, a => by
     simp only [phase2A, phase2]
     cases hc : findCycle I (get I a) with
     | none => rfl
     | some C =>
-      show get I (if validRot I (get I a) C = true then phase2A I fuel (ofRho I (rotate I (get I a) C)) else a)
-        = (if validRot I (get I a) C = true then phase2 I fuel (materialize I (rotate I (get I a) C)) else get I a)
+      show get I (if validRot I (get I a) C = true then
+          phase2A I fuel (ofRho I (rotate I (get I a) C)) else a)
+        = (if validRot I (get I a) C = true then
+          phase2 I fuel (materialize I (rotate I (get I a) C)) else get I a)
       by_cases hv : validRot I (get I a) C = true
       · rw [ifp hv, ifp hv, get_phase2A fuel, materialize_eq, get_ofRho]
       · rw [ifn hv, ifn hv]
@@ -1358,6 +1364,7 @@ def mrdA : Option I.Alloc :=
   | some s => some (dumpE I (get I a) s)
   | none => none
 
+/-- The array-backed rotation executable equals its specification. -/
 theorem mrdA_eq : mrdA I = mrd I := by
   simp only [mrdA, mrd, phase1, get_phase2A, get_phase1A]
 
@@ -1369,14 +1376,16 @@ theorem mrdA_total (hS : SearchOK I) : (mrdA I).isSome = true := by
 
 end Arr
 
-/-! ## The simplified algorithm: greedy Phase 1, then sink = first unassigned agent, else the last agent.
-No rotations, no fuel, no run-time checks — and no `sorry`. -/
+/-! ## The simplified algorithm: greedy Phase 1, then sink = first unassigned agent, else the last
+agent. No rotations, no fuel, no run-time checks — and no `sorry`. -/
 
 section Simple
 variable (I : Inst)
 
-theorem phase1_later (i : Fin I.n) (g : Fin I.m) (hi : phase1 I i = some g) (j : Fin I.n) (g' : Fin I.m)
-    (hj : phase1 I j = some g') (hlt : i.val < j.val) : I.v i g' ≤ I.v i g :=
+/-- (P3) for Phase 1: an agent values its own good at least as much as any good taken by a
+later-processed agent. -/
+theorem phase1_later (i : Fin I.n) (g : Fin I.m) (hi : phase1 I i = some g) (j : Fin I.n)
+    (g' : Fin I.m) (hj : phase1 I j = some g') (hlt : i.val < j.val) : I.v i g' ≤ I.v i g :=
   (phase1Upto_inv I I.n (Nat.le_refl _)).later i g hi j g' hj hlt
 
 def firstUnassigned (ρ : Rho I) : Option (Fin I.n) := findFin I.n (fun i => decide (ρ i = none))
@@ -1389,8 +1398,8 @@ def mrdG (hn : 0 < I.n) : I.Alloc :=
   | some s => dumpE I (phase1 I) s
   | none => dumpE I (phase1 I) (lastAgent I hn)
 
-/-- **The last-processed agent is a source** when everybody is assigned: an arc `i → last` would mean
-`i` prefers a good held by a later-processed agent, contradicting `phase1_later`. -/
+/-- **The last-processed agent is a source** when everybody is assigned: an arc `i → last` would
+mean `i` prefers a good held by a later-processed agent, contradicting `phase1_later`. -/
 theorem lastAgent_source (hn : 0 < I.n) (hall : ∀ i, phase1 I i ≠ none) :
     (toPAssign I (phase1 I) (phase1_inv I)).IsSource (lastAgent I hn) := by
   intro i harc
@@ -1425,7 +1434,8 @@ theorem mrdG_efx0 (hI : I.TwoRelevant) (hn : 0 < I.n) : I.EFX0 (mrdG I hn) := by
       have := findFin_some _ _ _ hf
       simpa using this
     rw [dumpE_eq I _ hinv s]
-    exact (toPAssign I _ hinv).dump_efx0 hI hinv.p1 hinv.p2 s ((toPAssign I _ hinv).unassigned_isSource s hs)
+    exact (toPAssign I _ hinv).dump_efx0 hI hinv.p1 hinv.p2 s
+      ((toPAssign I _ hinv).unassigned_isSource s hs)
   | none =>
     have hall : ∀ i, phase1 I i ≠ none := by
       intro i hi
@@ -1444,6 +1454,7 @@ def mrdGA (hn : 0 < I.n) : Option I.Alloc :=
     | some s => dumpE I (get I a) s
     | none => dumpE I (get I a) (lastAgent I hn))
 
+/-- The array-backed simplified executable equals its specification. -/
 theorem mrdGA_eq (hn : 0 < I.n) : mrdGA I hn = some (mrdG I hn) := by
   simp only [mrdGA, mrdG, phase1, get_phase1A]
 
@@ -1478,13 +1489,14 @@ theorem finSum_ind (k : Nat) (x : Fin k) : finSum k (ind k x) = 1 := by
   · intro i hi
     simp [ind, hi]
 
-/-- The counting form of 2-relevance used in the write-up: `|R_i| ≤ 2`. -/
+/-- The counting form of 2-relevance used in the paper: `|R_i| ≤ 2`. -/
 def numRelevant (i : Fin I.n) : Nat := finSum I.m (fun g => if 0 < I.v i g then 1 else 0)
 
 /-- `|R_i| ≤ 2` for all `i` implies the formal hypothesis (no three distinct positive goods). -/
 theorem twoRelevant_of_count (h : ∀ i, numRelevant I i ≤ 2) : I.TwoRelevant := by
   intro i g1 g2 g3 h12 h13 h23 p1 p2 p3
-  have hle : finSum I.m (fun g => ind I.m g1 g + ind I.m g2 g + ind I.m g3 g) ≤ numRelevant I i := by
+  have hle :
+      finSum I.m (fun g => ind I.m g1 g + ind I.m g2 g + ind I.m g3 g) ≤ numRelevant I i := by
     unfold numRelevant
     apply finSum_le_finSum
     intro g
@@ -1523,14 +1535,17 @@ theorem efx0Check_complete (X : I.Alloc) (h : I.EFX0 X) : I.efx0Check X = true :
       exact decide_eq_true (h i j hij g hg)
     · rw [ifn hg]
 
+/-- The Boolean checker is sound and complete: it accepts exactly the strongly-EFX₀ allocations. -/
 theorem efx0Check_iff (X : I.Alloc) : I.efx0Check X = true ↔ I.EFX0 X :=
   ⟨Inst.efx0Check_sound I X, efx0Check_complete I X⟩
 
-/-- **Existence**, under the formal hypothesis and under the counting hypothesis of the write-up. -/
+/-- **Existence** under the formal hypothesis (no agent has three distinct relevant goods). -/
 theorem exists_efx0 (hI : I.TwoRelevant) (hn : 0 < I.n) : ∃ X : I.Alloc, I.EFX0 X :=
   ⟨mrdG I hn, mrdG_efx0 I hI hn⟩
 
-theorem exists_efx0_of_count (h : ∀ i, numRelevant I i ≤ 2) (hn : 0 < I.n) : ∃ X : I.Alloc, I.EFX0 X :=
+/-- **Existence** under the counting hypothesis of the paper, `|R_i| ≤ 2` for every agent. -/
+theorem exists_efx0_of_count (h : ∀ i, numRelevant I i ≤ 2) (hn : 0 < I.n) :
+    ∃ X : I.Alloc, I.EFX0 X :=
   exists_efx0 I (twoRelevant_of_count I h) hn
 
 theorem dump_thin_other (A : PAssign I) (s j : Fin I.n) (hjs : j ≠ s) (g g' : Fin I.m)
@@ -1546,7 +1561,8 @@ theorem mrdG_shape (hn : 0 < I.n) :
   unfold mrdG
   cases hf : firstUnassigned I (phase1 I) with
   | some s =>
-    show ∃ s', ∀ j, j ≠ s' → ∀ g g', dumpE I (phase1 I) s g = j → dumpE I (phase1 I) s g' = j → g = g'
+    show ∃ s', ∀ j, j ≠ s' → ∀ g g',
+      dumpE I (phase1 I) s g = j → dumpE I (phase1 I) s g' = j → g = g'
     refine ⟨s, fun j hjs g g' hg hg' => ?_⟩
     rw [dumpE_eq I _ (phase1_inv I) s] at hg hg'
     exact dump_thin_other I _ s j hjs g g' hg hg'
@@ -1559,7 +1575,8 @@ theorem mrdG_shape (hn : 0 < I.n) :
 
 end Bridge
 
-/-! ## Unconditional liveness of the rotation-based variant: after greedy Phase 1 there is no cycle -/
+/-! ## Unconditional liveness of the rotation-based variant: after greedy Phase 1 there is no
+cycle -/
 
 section NoCycle
 variable (I : Inst)
@@ -1610,6 +1627,7 @@ theorem walk_none : ∀ (fuel : Nat) (x : Fin I.n) (seen : List (Fin I.n)),
       · exact hyx
       · exact Nat.lt_trans hyx (hseen z hz')
 
+/-- After greedy Phase 1 the cycle search finds nothing: the envy digraph is acyclic. -/
 theorem findCycle_phase1 : findCycle I (phase1 I) = none := by
   unfold findCycle
   have h : findFin I.n (fun x => (walk I (phase1 I) (I.n + 1) x []).isSome) = none := by
@@ -1726,6 +1744,8 @@ end Spec
 
 /-! ## Worked examples, at the `Prop` level -/
 
+/-- Three agents, five goods, each agent with exactly two relevant goods; goods `3` and `4` are
+worthless to everyone. -/
 def exInst : Inst where
   n := 3
   m := 5
@@ -1743,6 +1763,8 @@ theorem example_ok : ∃ X, mrd exInst = some X ∧ exInst.EFX0 X := by
   | none => rw [hm] at h; simp at h
   | some X => exact ⟨X, rfl, mrd_sound exInst (twoRelCheck_sound exInst (by decide)) X hm⟩
 
+/-- Three agents with identical values on goods `0` and `1`, a fourth agent wanting good `2`, and
+a worthless good `3`; one of the first three agents necessarily receives nothing it values. -/
 def exInst2 : Inst where
   n := 4
   m := 4
@@ -1754,6 +1776,7 @@ def exInst2 : Inst where
     | 3, 2 => 4
     | _, _ => 0
 
+/-- The algorithm terminates with an EFX₀ allocation on the second example as well. -/
 theorem example2_ok : ∃ X, mrd exInst2 = some X ∧ exInst2.EFX0 X := by
   have h : (mrd exInst2).isSome = true := by decide
   cases hm : mrd exInst2 with

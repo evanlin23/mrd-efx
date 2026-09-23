@@ -3,16 +3,12 @@ on: [push, pull_request]
 jobs:
   build:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        toolchain: ["leanprover/lean4:v4.19.0", "leanprover/lean4:v4.34.0"]
     steps:
       - uses: actions/checkout@v4
-      - name: Install elan and the toolchain
+      - name: Install elan (the toolchain pinned in lean-toolchain is fetched on first use)
         run: |
           curl -sSfL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh | sh -s -- -y --default-toolchain none
           echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
-          echo "${{ matrix.toolchain }}" > lean-toolchain
       - name: Build and audit
         run: ./check.sh
       - name: Native random test

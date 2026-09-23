@@ -1,68 +1,69 @@
-# Strong EFX_0 for 2-relevant agents — Lean 4 verification
+# Strong EFX₀ for 2-relevant agents — Lean 4 formalization
 
-Core Lean 4 only (no Mathlib). Toolchain pinned in `lean-toolchain`: **leanprover/lean4:v4.19.0**.
-Verified to build unchanged, with **no errors and no warnings**, on **v4.19.0**, **v4.27.0** and
-**v4.34.0** (the newest release at the time of writing), each time from a fresh unzip of this archive.
-The full build logs are included: `BUILDLOG-lean-4.19.0.txt`, `BUILDLOG-lean-4.27.0.txt`,
-`BUILDLOG-lean-4.34.0.txt`. To build with another version, edit `lean-toolchain`; nothing else depends
-on the version. Deprecated names are avoided (`ifp`/`ifn` replace `if_pos`/`if_neg`).
+Formal companion to the paper *Strong EFX Allocations Exist When Every Agent Values at Most Two
+Goods* (Evan Lin and Gerald Osterhaus, 2026). Every result of the paper is proved in core Lean 4
+(no Mathlib), including the executable algorithms.
 
-## Citing and license
-
-Apache-2.0 (see `LICENSE`). Citation metadata is in `CITATION.cff`; the tagged release corresponding
-to the paper is `v1.0.0`, and the `#print axioms` lines of its build logs are the certificate that
-no theorem depends on `sorryAx` or on any non-standard axiom.
+Toolchain: **leanprover/lean4:v4.34.0**, pinned in `lean-toolchain`; `elan` installs it on first
+use. The development builds with no errors and no warnings. The complete build log from a fresh
+checkout is `BUILDLOG-lean-4.34.0.txt`; its `#print axioms` lines are the certificate that no
+theorem depends on `sorryAx` or on any non-standard axiom. Deprecated names are avoided (`ifp`/`ifn`
+replace `if_pos`/`if_neg`).
 
 ## Build and audit
 
-    ./check.sh            # lake build + audit: fails on any error, warning, `sorry`, or non-standard axiom
-
-A GitHub Actions workflow (`.github/workflows/lean.yml`) runs the same audit on Lean 4.19.0 and 4.34.0.
-
-## Build
-
     # install elan once: https://github.com/leanprover/elan
-    lake build            # builds MRD.lean and MRDMono.lean; prints `#print axioms` lines
+    ./check.sh            # build + audit: any error, warning, sorry or non-standard axiom fails
+
+On success the last line is `CHECK PASSED: 35 theorems verified with standard axioms only`, and
+every `#print axioms` line above it lists only `propext`, `Classical.choice` and `Quot.sound`. No
+file contains `sorry`. The GitHub Actions workflow in `.github/workflows/lean.yml` runs the same
+audit on every push, followed by the native random test:
+
+    lake build            # builds the four modules and prints the `#print axioms` lines
     lake build mrdtest    # native random-test driver
     lake exe mrdtest 20000 12 12 7   # trials, max agents, max goods, seed
 
-The build must report no errors. Every `#print axioms` line must list only
-`propext`, `Classical.choice`, `Quot.sound` — never `sorryAx`. Neither file contains `sorry`.
-
 ## Contents
 
-* `MRD.lean` — additive model. Main theorems: `MRD.main_theorem` (existence + shape under |R_i| <= 2),
-  `MRD.mrdG_efx0` (simplified algorithm: greedy, then dump on an unassigned agent or else the last agent),
-  `MRD.mrd_correct` (rotation-based variant: sound and live), `MRD.efx0_of_invariants` (tie-breaking
-  independence), `MRD.efx0Check_iff` (sound and complete checker), `MRD.mrdA_eq`/`MRD.mrdGA_eq`
-  (array-backed executables equal the specifications).
+* `MRD.lean` — additive model. Main theorems: `MRD.main_theorem` (existence + shape under
+  |R_i| <= 2), `MRD.mrdG_efx0` (simplified algorithm: greedy, then dump on an unassigned agent or
+  else the last agent), `MRD.mrd_correct` (rotation-based variant: sound and live),
+  `MRD.efx0_of_invariants` (tie-breaking independence), `MRD.efx0Check_iff` (sound and complete
+  checker), `MRD.mrdA_eq`/`MRD.mrdGA_eq` (array-backed executables equal the specifications).
 * `MRDMono.lean` — general monotone valuations on at most two goods (substitutes, complements, ...).
   Main theorem: `MRDM.mrdM_efx0`. Kernel-checked example `MRDM.exM_ok` with a complementary agent.
-* `MRDBridge.lean` — embeds every 2-relevant additive instance into the monotone model and proves the two
-  `EFX0` predicates coincide (`MRDBridge.efx0_iff`); hence the additive theorem is a corollary of the monotone
-  one (`MRDBridge.additive_via_monotone`).
-* `MRDDeg3.lean` — the degree-3 sharpness example: exactly two of the sixteen allocations are strongly EFX₀
-  (`MRDDeg3.sharp`), kernel-checked through the complete checker; no EFX₀ allocation has all bundles but one
-  of size ≤ 1 (`MRDDeg3.no_thin_shape`), and every EFX₀ allocation gives some agent two of its relevant goods
-  (`MRDDeg3.two_relevant_goods`).
+* `MRDBridge.lean` — embeds every 2-relevant additive instance into the monotone model and proves
+  the two `EFX0` predicates coincide (`MRDBridge.efx0_iff`); hence the additive theorem is a
+  corollary of the monotone one (`MRDBridge.additive_via_monotone`).
+* `MRDDeg3.lean` — the degree-3 sharpness example: exactly two of the sixteen allocations are
+  strongly EFX₀ (`MRDDeg3.sharp`), kernel-checked through the complete checker; no EFX₀ allocation
+  has all bundles but one of size ≤ 1 (`MRDDeg3.no_thin_shape`), and every EFX₀ allocation gives
+  some agent two of its relevant goods (`MRDDeg3.two_relevant_goods`).
 * `MRDTest.lean` — native driver running both verified executables on random instances.
 
-## Traceability: write-up claim → Lean theorem → test evidence
+## Correspondence with the paper
 
-| Claim in the write-up | Lean (file : name) | Test evidence |
-|---|---|---|
-| Lemma 1 (local EFX₀ test) | MRD : `PAssign.other_val`, `own_val`, `sink_val_le` (used in place of the general lemma) | — |
-| Lemma 2 (P1),(P2),(P3) hold after greedy Phase 1 | MRD : `phase1_inv`, `phase1_later` (executable Phase 1) | exhaustive sweeps (`verify_simple.py`) |
-| Lemma 3 (the sink is a source) | MRD : `lastAgent_source`, `lastAgent_source_gen`; unassigned case `PAssign.unassigned_isSource` | sweep assertion "last agent always a source" |
-| Lemma 4 (thin dump) | MRD : `PAssign.thin_dump`, `PAssign.dump_bound` | thin-dump assertion in `verify_user_p4_more.py` |
-| Theorem 1: output complete and EFX₀ | MRD : `mrdG_efx0` (spec), `mrdGA_efx0` (array-backed executable), `mrdGA_eq` | ~70M Python runs; ~1M native runs; differential test |
-| Theorem 1: all bundles but one of size ≤ 1 | MRD : `mrdG_shape` | — |
-| Existence under |R_i| ≤ 2 | MRD : `twoRelevant_of_count`, `exists_efx0_of_count`, `main_theorem` | — |
-| "Ties broken arbitrarily" | MRD : `efx0_of_invariants` (any assignment with (P1)–(P3)) | random tie-breaking sweeps |
-| Remark: rotation loop never fires; earlier algorithm sound and live | MRD : `findCycle_phase1`, `phase2_phase1`, `mrd_sound`, `mrd_correct` | "cycles after Phase 1 = 0" in sweeps |
-| Checker used on concrete instances is trustworthy | MRD : `efx0Check_iff` (sound and complete); MRDMono : `MInst.efx0Check_sound` | mutation tests (`verify_mutation.py`) |
-| Beyond additivity (general monotone on two goods) | MRDMono : `PA.dump_efx0`, `mrdM_efx0`, `mrdM_shape`, `main_theorem`, example `exM_ok` | exhaustive monotone sweeps (`verify_monotone_simple.py`) |
-| Additive theorem is a corollary of the monotone one | MRDBridge : `bundleVal_eq`, `efx0_iff`, `additive_via_monotone` | — |
-| Degree-3 sharpness example (exactly two EFX₀ allocations) | MRDDeg3 : `sharp` (kernel-checked over all 16 allocations via the complete checker) | exhaustive check (`verify_p4.py`) |
-| Running time O(n+m) | not formalized (the Lean executables use quadratic search helpers; the bound is about the algorithm with array bookkeeping) | — |
-| Values are natural numbers in Lean; reals by the same argument | stated as a caveat, not formalized | — |
+| Statement in the paper | Lean (file : name) |
+|---|---|
+| Local characterization lemma (as used) | MRD : `PAssign.other_val`, `own_val`, `sink_val_le` |
+| Invariants (P1)–(P3) of Phase 1 | MRD : `phase1_inv`, `phase1_later`, `phase1_holders` |
+| The envy digraph is acyclic | MRD : `succE_lt`, `findCycle_phase1`, `lastAgent_source` |
+| The dump bundle is thin | MRD : `PAssign.thin_dump`, `PAssign.dump_bound` |
+| Main theorem (additive) | MRD : `mrdG_efx0`, `mrdG_shape`, `main_theorem` |
+| Tie-breaking independence | MRD : `efx0_of_invariants` |
+| Existence under \|R_i\| ≤ 2 | MRD : `twoRelevant_of_count`, `exists_efx0_of_count` |
+| Monotone invariants and main theorem | MRDMono : `phase1Upto_inv`, `PA.dump_efx0`, `mrdM_efx0`, `main_theorem` |
+| Additive theorem as a corollary of the monotone one | MRDBridge : `efx0_iff`, `additive_via_monotone` |
+| Checker soundness and completeness | MRD : `efx0Check_iff` |
+| Degree-3 sharpness example | MRDDeg3 : `sharp`, `no_thin_shape`, `two_relevant_goods` |
+
+Not formalized: the running-time bound O(n+m) (a statement about the algorithm with array
+bookkeeping; the Lean executables use quadratic search helpers), and real-valued utilities (values
+are natural numbers in Lean; the argument is order-theoretic and applies verbatim to nonnegative
+reals).
+
+## Citing and license
+
+Apache-2.0 (see `LICENSE`). Citation metadata is in `CITATION.cff`; the release corresponding to
+the paper is tag `v1.0.0`.
