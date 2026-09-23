@@ -1,0 +1,24 @@
+cff-version: 1.2.0
+message: "If you use this formalization, please cite the paper and this artifact."
+title: "Strong EFX allocations for 2-relevant agents: Lean 4 formalization"
+authors:
+  - family-names: Lin
+    given-names: Evan
+  - family-names: Osterhaus
+    given-names: Gerald
+version: 1.0.0
+date-released: 2026-09-23
+license: Apache-2.0
+repository-code: "https://github.com/evanlin23/mrd-efx"   # TODO: replace after creating the repository
+identifiers:
+  - type: doi
+    value: "10.5281/zenodo.XXXXXXX"                    # TODO: replace with the Zenodo DOI of the tagged release
+preferred-citation:
+  type: article
+  title: "Strong EFX Allocations Exist When Every Agent Values at Most Two Goods"
+  authors:
+    - family-names: Lin
+      given-names: Evan
+    - family-names: Osterhaus
+      given-names: Gerald
+  year: 2026

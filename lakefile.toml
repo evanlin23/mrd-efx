@@ -1,0 +1,19 @@
+name = "mrd-efx"
+version = "0.1.0"
+defaultTargets = ["MRD", "MRDMono", "MRDBridge", "MRDDeg3"]
+
+[[lean_lib]]
+name = "MRD"
+
+[[lean_lib]]
+name = "MRDMono"
+
+[[lean_lib]]
+name = "MRDBridge"
+
+[[lean_lib]]
+name = "MRDDeg3"
+
+[[lean_exe]]
+name = "mrdtest"
+root = "MRDTest"
