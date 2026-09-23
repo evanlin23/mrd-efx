@@ -9,8 +9,10 @@ Given a 2-relevant additive instance `I` (no agent has three distinct positively
 at least one good, we build the monotone instance `toM I` whose slots are the (at most two)
 positively valued goods of each agent and whose table is the corresponding sum, prove that the two
 bundle-value functions coincide on every bundle (`bundleVal_eq`), hence that the two `EFX0`
-predicates coincide (`efx0_iff`), and conclude that the monotone algorithm produces a strongly-EFX₀
-allocation for `I` (`additive_via_monotone`).
+predicates coincide (`efx0_iff`), and conclude that the monotone algorithms produce strongly-EFX₀
+allocations for `I` (`additive_via_monotone_L` for the paper's Algorithm 2, `additive_via_monotone`
+for the variant preferring an unassigned sink). Only the EFX₀ conclusion transfers: the
+executable-level identity `mrdL I = mrdML (toM I hm)` is not claimed.
 -/
 
 namespace MRDBridge
@@ -138,13 +140,21 @@ theorem efx0_iff (hI : I.TwoRelevant) (hm : 0 < I.m) (X : I.Alloc) :
     rw [bundleVal_eq I hI hm X i j (some g), bundleVal_eq I hI hm X i i none]
     exact h i j hij g hg
 
-/-- **The additive theorem as a corollary of the monotone one.** -/
+/-- **The additive theorem as a corollary of the monotone one**, for the variant preferring an
+unassigned sink. -/
 theorem additive_via_monotone (hI : I.TwoRelevant) (hn : 0 < I.n) (hm : 0 < I.m) :
     I.EFX0 (MRDM.mrdM (toM I hm) hn) :=
   (efx0_iff I hI hm _).mpr (MRDM.mrdM_efx0 (toM I hm) hn)
+
+/-- **The additive theorem as a corollary of the monotone one**: the paper's Algorithm 2 on the
+embedded instance is strongly EFX₀ for the additive instance (assuming at least one good). -/
+theorem additive_via_monotone_L (hI : I.TwoRelevant) (hn : 0 < I.n) (hm : 0 < I.m) :
+    I.EFX0 (MRDM.mrdML (toM I hm) hn) :=
+  (efx0_iff I hI hm _).mpr (MRDM.mrdML_efx0 (toM I hm) hn)
 
 end MRDBridge
 
 #print axioms MRDBridge.bundleVal_eq
 #print axioms MRDBridge.efx0_iff
 #print axioms MRDBridge.additive_via_monotone
+#print axioms MRDBridge.additive_via_monotone_L

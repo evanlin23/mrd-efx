@@ -1,23 +1,31 @@
 /-!
-# Match–Dump for 2-relevant additive instances: a complete formal verification
+# Match–dump for 2-relevant additive instances: a complete formal verification
 
 Core Lean 4 only (no Mathlib). Model: `n` agents, `m` goods, additive values `v i g : Nat`; a good
 is relevant to `i` iff `0 < v i g`; the instance is 2-relevant iff no agent has three distinct
 relevant goods (`twoRelevant_of_count` shows the counting form `|R_i| ≤ 2` implies this).
 Fairness: strong `EFX₀` (the removed good may be worthless to the envier).
 
-There is no `sorry` in this file. Main results (see `#print axioms` at the end):
-* `dump_efx0` – the dump step is EFX₀ for every assignment satisfying (P1),(P2) and every source;
+The file contains no unfinished proofs. Main results (each with a `#print axioms` certificate at
+the end of the file):
+* `mrdL_efx0`, `mrdL_shape`, `main_theorem_L` – **the paper's algorithm** (`mrdL`): greedy
+  Phase 1, then every unassigned good goes to the agent processed last. The output is a complete
+  strongly-EFX₀ allocation with all bundles but one of size ≤ 1; existence under `|R_i| ≤ 2`.
+  `mrdLA_eq`: the array-backed executable `mrdLA` equals `mrdL`.
+* `dump_efx0`, `lastAgent_source_all`, `efx0_of_invariants` – the dump step is EFX₀ for every
+  assignment satisfying (P1),(P2) and every source; the last agent is always a source; and the
+  conclusion holds for any assignment satisfying the invariants, not only the one Phase 1
+  computes (tie-breaking independence).
 * `phase1_inv`, `phase1_later`, `phase1_holders` – the executable greedy Phase 1 satisfies the
-  invariants;
-* `mrdG_efx0`, `mrdG_shape`, `exists_efx0_of_count` – the simplified algorithm (greedy, then dump on
-  an unassigned agent or else the last agent) always outputs a complete EFX₀ allocation with all
-  bundles but one of size ≤ 1; existence under the hypothesis `|R_i| ≤ 2`;
-* `mrd_sound`, `mrd_total_unconditional`, `mrd_correct` – the rotation-based variant is sound and
-  live: after a greedy Phase 1 the envy digraph has no cycle (`findCycle_phase1`), so Phase 2 is the
-  identity (`phase2_phase1`);
-* `efx0Check_iff` – the Boolean EFX₀ checker is sound and complete;
-* `mrdA_eq`, `mrdGA_eq` – array-backed executables equal the specifications.
+  invariants.
+* `efx0Check_iff` – the Boolean EFX₀ checker is sound and complete.
+* `mrdG_efx0`, `mrdG_shape`, `main_theorem`, `mrdGA_eq` – the variant preferring an unassigned
+  agent as the sink, with an array-backed executable proved equal to its specification.
+* `mrd_sound`, `mrd_total_unconditional`, `mrd_correct`, `mrdA_eq` – the superseded variant with a
+  cycle-rotation phase (the rotation machinery lives in sections `Exec`, `Live`, `Arr`, `NoCycle`).
+  It is not part of the paper; formalizing it is how the acyclicity lemma was found: after Phase 1
+  the envy digraph has no cycle (`findCycle_phase1`), so the rotation phase is the identity
+  (`phase2_phase1`).
 -/
 
 set_option autoImplicit false
@@ -449,7 +457,8 @@ theorem dump_efx0_unassigned (hI : I.TwoRelevant) (hP1 : A.P1) (hP2 : A.P2)
 
 end PAssign
 
-/-! ## Executable algorithm, verified except for liveness -/
+/-! ## Executable algorithm with a rotation phase (superseded variant; its Phase 1 is shared with
+the paper's algorithm), verified except for liveness -/
 
 section Exec
 variable (I : Inst)
@@ -1072,7 +1081,8 @@ theorem twoRelCheck_sound (h : twoRelCheck I = true) : I.TwoRelevant := by
 end Exec
 
 
-/-! ## Liveness, part 1: if some agent is unassigned after Phase 1, `mrd` always returns -/
+/-! ## Superseded rotation variant, liveness part 1: if some agent is unassigned after Phase 1,
+`mrd` always returns -/
 
 section Live
 variable (I : Inst)
@@ -1308,7 +1318,8 @@ theorem mrd_total (hS : SearchOK I) : (mrd I).isSome = true := by
 
 end Live
 
-/-! ## Array-backed executable (same algorithm, no closure chains), proved equal to `mrd` -/
+/-! ## Superseded rotation variant: array-backed executable (no closure chains), proved equal to
+`mrd` -/
 
 section Arr
 variable (I : Inst)
@@ -1376,8 +1387,8 @@ theorem mrdA_total (hS : SearchOK I) : (mrdA I).isSome = true := by
 
 end Arr
 
-/-! ## The simplified algorithm: greedy Phase 1, then sink = first unassigned agent, else the last
-agent. No rotations, no fuel, no run-time checks — and no `sorry`. -/
+/-! ## The variant preferring an unassigned sink: greedy Phase 1, then sink = first unassigned
+agent, else the last agent. No rotations, no fuel, no run-time checks. -/
 
 section Simple
 variable (I : Inst)
@@ -1575,12 +1586,13 @@ theorem mrdG_shape (hn : 0 < I.n) :
 
 end Bridge
 
-/-! ## Unconditional liveness of the rotation-based variant: after greedy Phase 1 there is no
-cycle -/
+/-! ## Unconditional liveness of the superseded rotation variant: after greedy Phase 1 there is
+no cycle -/
 
 section NoCycle
 variable (I : Inst)
 
+/-- Any holder of a good valued by an agent that Phase 1 left unassigned was processed earlier. -/
 theorem phase1_holders (x : Fin I.n) (hx : phase1 I x = none) (g : Fin I.m) (hg : 0 < I.v x g)
     (y : Fin I.n) (hy : phase1 I y = some g) : y.val < x.val :=
   (phase1Upto_inv I I.n (Nat.le_refl _)).holders x x.isLt hx g hg y hy
@@ -1774,12 +1786,15 @@ theorem lastAgent_source_all (hn : 0 < I.n) :
 agent processed last, whether or not that agent holds a good. -/
 def mrdL (hn : 0 < I.n) : I.Alloc := dumpE I (phase1 I) (lastAgent I hn)
 
+/-- **The paper's algorithm is correct**: on every 2-relevant instance its output is strongly
+EFX₀. -/
 theorem mrdL_efx0 (hI : I.TwoRelevant) (hn : 0 < I.n) : I.EFX0 (mrdL I hn) := by
   unfold mrdL
   have hinv := phase1_inv I
   rw [dumpE_eq I _ hinv (lastAgent I hn)]
   exact (toPAssign I _ hinv).dump_efx0 hI hinv.p1 hinv.p2 _ (lastAgent_source_all I hn)
 
+/-- All bundles but the last agent's have size at most one. -/
 theorem mrdL_shape (hn : 0 < I.n) :
     ∃ s, ∀ j, j ≠ s → ∀ g g', mrdL I hn g = j → mrdL I hn g' = j → g = g' := by
   unfold mrdL
@@ -1787,8 +1802,18 @@ theorem mrdL_shape (hn : 0 < I.n) :
   rw [dumpE_eq I _ (phase1_inv I) (lastAgent I hn)] at hg hg'
   exact dump_thin_other I _ (lastAgent I hn) j hjs g g' hg hg'
 
-/-- **Headline theorem, simplest algorithm**: the allocation produced by "greedy, then the last agent
-takes the rest" is strongly EFX₀ with all bundles but one of size at most one. -/
+/-- Array-backed version of `mrdL` for native execution, proved equal. (Wrapped in `Option` so that
+the compiler does not eta-expand it and recompute Phase 1 on every lookup.) -/
+def mrdLA (hn : 0 < I.n) : Option I.Alloc :=
+  let a := phase1A I I.n (Nat.le_refl _)
+  some (dumpE I (get I a) (lastAgent I hn))
+
+/-- The array-backed executable of the paper's algorithm equals its specification. -/
+theorem mrdLA_eq (hn : 0 < I.n) : mrdLA I hn = some (mrdL I hn) := by
+  simp only [mrdLA, mrdL, phase1, get_phase1A]
+
+/-- **Headline theorem, simplest algorithm**: the allocation produced by "greedy, then the last
+agent takes the rest" is strongly EFX₀ with all bundles but one of size at most one. -/
 theorem main_theorem_L (hn : 0 < I.n) (h : ∀ i, numRelevant I i ≤ 2) :
     ∃ X : I.Alloc, I.EFX0 X ∧ ∃ s, ∀ j, j ≠ s → ∀ g g', X g = j → X g' = j → g = g' :=
   ⟨mrdL I hn, mrdL_efx0 I (twoRelevant_of_count I h) hn, mrdL_shape I hn⟩
@@ -1865,3 +1890,14 @@ end MRD
 #print axioms MRD.lastAgent_source_all
 #print axioms MRD.mrdL_efx0
 #print axioms MRD.main_theorem_L
+#print axioms MRD.PAssign.other_val
+#print axioms MRD.PAssign.own_val
+#print axioms MRD.PAssign.sink_val_le
+#print axioms MRD.PAssign.thin_dump
+#print axioms MRD.PAssign.dump_bound
+#print axioms MRD.phase1_later
+#print axioms MRD.phase1_holders
+#print axioms MRD.succE_lt
+#print axioms MRD.mrdL_shape
+#print axioms MRD.mrdGA_eq
+#print axioms MRD.mrdLA_eq

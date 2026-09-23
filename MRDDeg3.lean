@@ -14,6 +14,7 @@ goods.
 namespace MRDDeg3
 open MRD (allFin allFin_true allFin_of_forall)
 
+/-- The sharpness instance: two agents with identical values `3, 2, 2, 0` on four goods. -/
 def I3 : MRD.Inst where
   n := 2
   m := 4

@@ -10,15 +10,19 @@ and whether it contains `b i`. Monotonicity: `f i false false = 0` and both sing
 most the pair value. This covers additive, substitute and complementary preferences on the two
 goods.
 
-Algorithm: one greedy pass in index order — an agent takes its most valuable available slot among
-the eligible ones (a slot is eligible if its singleton value is positive, or if the agent is
-*complementary*, i.e. both singleton values are zero but the pair is worth something); then the
-unassigned goods are dumped on an unassigned agent if there is one, else on the last agent.
+Algorithm (the paper's Algorithm 2, `mrdML`): one greedy pass in index order — an agent takes its
+most valuable available slot among the eligible ones (a slot is eligible if its singleton value is
+positive, or if the agent is *complementary*, i.e. both singleton values are zero but the pair is
+worth something); then every unassigned good goes to the agent processed last. The variant `mrdM`
+dumps on an unassigned agent if there is one, else on the last agent.
 -/
 
 namespace MRDM
 open MRD (findFin findFin_some findFin_none allFin allFin_true ifp ifn)
 
+/-- A monotone instance on at most two relevant goods per agent: slots `a i`, `b i` (equal for a
+one-good agent) and a normalised value table `f i` indexed by slot membership, with
+`f i false false = 0` and each singleton worth at most the pair. -/
 structure MInst where
   n : Nat
   m : Nat
@@ -170,7 +174,8 @@ def Cfix : Prop := ∀ i, A.ρ i = none → I.a i ≠ I.b i → A.Unassigned (I.
   I.f i true true = 0
 /-- Nobody who does not hold `g` values it above their own good. -/
 def Secure (g : Fin I.m) : Prop := ∀ i, A.ρ i ≠ some g → I.sv i g ≤ A.util i
-/-- Unassigned agents find `g` ineligible: worthless as a singleton, and they are not complementary. -/
+/-- Unassigned agents find `g` ineligible: worthless as a singleton, and they are not
+complementary. -/
 def SinkOK (g : Fin I.m) : Prop := ∀ i, A.ρ i = none → I.Rel i g → I.sv i g = 0 ∧ I.complB i = false
 
 /-- Own bundle value for agents other than the sink. -/
@@ -275,7 +280,8 @@ theorem dump_efx0 (hP1 : A.P1) (hP2 : A.P2) (hC : A.Cfix) (s : Fin I.n)
             · rw [e] at hi; rw [hnot _ hi] at hb; cases hb
         rw [A.util_none i hi]
         -- each slot in the sink's bundle is either the sink's own good or unassigned
-        have hslot : ∀ g', I.has (A.dump s) s (some g) g' = true → A.ρ s = some g' ∨ A.Unassigned g' :=
+        have hslot :
+            ∀ g', I.has (A.dump s) s (some g) g' = true → A.ρ s = some g' ∨ A.Unassigned g' :=
           fun g' h => (A.dump_self_iff s g').mp (hmem _ h).1
         -- an unassigned slot is worthless to the unassigned agent `i`, by (P1)
         have hsv0 : ∀ g', I.Rel i g' → A.Unassigned g' → I.sv i g' = 0 := by
@@ -372,7 +378,8 @@ structure InvUpto (t : Nat) (ρ : Rho I) : Prop where
     (∀ j, ρ j ≠ some (I.b i)) → I.f i true true = 0
   unproc : ∀ i : Fin I.n, t ≤ i.val → ρ i = none
   later : ∀ i g, ρ i = some g → ∀ j g', ρ j = some g' → i.val < j.val → I.sv i g' ≤ I.sv i g
-  /-- Every eligible slot of a processed-but-unassigned agent is held by an earlier-processed agent. -/
+  /-- Every eligible slot of a processed-but-unassigned agent is held by an earlier-processed
+  agent. -/
   holders : ∀ x : Fin I.n, x.val < t → ρ x = none → ∀ g, I.Rel x g → eligB I x g = true →
     ∃ y, ρ y = some g ∧ y.val < x.val
 
@@ -832,3 +839,5 @@ end MRDM
 #print axioms MRDM.main_theorem
 #print axioms MRDM.mrdML_efx0
 #print axioms MRDM.main_theorem_L
+#print axioms MRDM.phase1Upto_inv
+#print axioms MRDM.mrdML_shape

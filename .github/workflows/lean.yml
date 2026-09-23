@@ -1,15 +1,17 @@
 name: verify
-on: [push, pull_request]
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
 jobs:
   check:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install elan (the toolchain pinned in lean-toolchain is fetched on first use)
         run: |
           curl -sSfL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh | sh -s -- -y --default-toolchain none
           echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
       - name: Build and audit
         run: ./check.sh
-      - name: Native random test
+      - name: Native random test (exits 1 on any failure)
         run: lake exe mrdtest 20000 12 14 7
