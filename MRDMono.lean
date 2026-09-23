@@ -75,6 +75,15 @@ def complB (i : Fin I.n) : Bool :=
   decide (I.a i ≠ I.b i) && decide (I.sv i (I.a i) = 0) && decide (I.sv i (I.b i) = 0) &&
     decide (0 < I.f i true true)
 
+/-- A non-complementary agent with distinct, worthless singletons values the pair at zero. -/
+theorem pair_zero_of_not_compl (i : Fin I.n) (hab : I.a i ≠ I.b i) (ha : I.sv i (I.a i) = 0)
+    (hb : I.sv i (I.b i) = 0) (hc : I.complB i = false) : I.f i true true = 0 := by
+  apply Nat.eq_zero_of_not_pos
+  intro hpos
+  have ht : I.complB i = true := by unfold complB; simp [hab, ha, hb, hpos]
+  rw [ht] at hc
+  cases hc
+
 end MInst
 
 /-! ## Partial assignments and the dump step -/
@@ -161,6 +170,8 @@ def Cfix : Prop := ∀ i, A.ρ i = none → I.a i ≠ I.b i → A.Unassigned (I.
   I.f i true true = 0
 /-- Nobody who does not hold `g` values it above their own good. -/
 def Secure (g : Fin I.m) : Prop := ∀ i, A.ρ i ≠ some g → I.sv i g ≤ A.util i
+/-- Unassigned agents find `g` ineligible: worthless as a singleton, and they are not complementary. -/
+def SinkOK (g : Fin I.m) : Prop := ∀ i, A.ρ i = none → I.Rel i g → I.sv i g = 0 ∧ I.complB i = false
 
 /-- Own bundle value for agents other than the sink. -/
 theorem own_val (s i : Fin I.n) (his : i ≠ s) : I.bundleVal (A.dump s) i i none = A.util i := by
@@ -192,11 +203,11 @@ theorem other_val (s i j : Fin I.n) (hjs : j ≠ s) (g : Fin I.m) (hg : A.dump s
 
 /-- A relevant good sitting in the sink's bundle (other than the removed one) is not envied. -/
 theorem sink_good (hP1 : A.P1) (hP2 : A.P2) (s : Fin I.n)
-    (hs : A.ρ s = none ∨ ((∀ i, A.ρ i ≠ none) ∧ ∃ g, A.ρ s = some g ∧ A.Secure g))
+    (hs : A.ρ s = none ∨ ∃ g, A.ρ s = some g ∧ A.Secure g ∧ A.SinkOK g)
     (i : Fin I.n) (his : i ≠ s) (g' : Fin I.m) (hrel : I.Rel i g') (hin : A.dump s g' = s) :
     I.sv i g' ≤ A.util i := by
   rcases (A.dump_self_iff s g').mp hin with hsg | hun
-  · rcases hs with hs0 | ⟨_, g0, hg0, hsec⟩
+  · rcases hs with hs0 | ⟨g0, hg0, hsec, _⟩
     · rw [hs0] at hsg; cases hsg
     · rw [hg0] at hsg
       cases hsg
@@ -216,7 +227,7 @@ theorem sink_good (hP1 : A.P1) (hP2 : A.P2) (s : Fin I.n)
 
 /-- **The dump step is EFX₀** for general monotone two-good valuations. -/
 theorem dump_efx0 (hP1 : A.P1) (hP2 : A.P2) (hC : A.Cfix) (s : Fin I.n)
-    (hs : A.ρ s = none ∨ ((∀ i, A.ρ i ≠ none) ∧ ∃ g, A.ρ s = some g ∧ A.Secure g)) :
+    (hs : A.ρ s = none ∨ ∃ g, A.ρ s = some g ∧ A.Secure g ∧ A.SinkOK g) :
     I.EFX0 (A.dump s) := by
   intro i j hij g hg
   by_cases hjs : j = s
@@ -263,19 +274,38 @@ theorem dump_efx0 (hP1 : A.P1) (hP2 : A.P2) (hC : A.Cfix) (s : Fin I.n)
             · rw [e] at hi; rw [hnot _ hi] at ha; cases ha
             · rw [e] at hi; rw [hnot _ hi] at hb; cases hb
         rw [A.util_none i hi]
-        have hua : A.Unassigned (I.a i) := by
-          rcases (A.dump_self_iff s (I.a i)).mp (hmem _ ha).1 with hsa | hun
-          · rcases hs with hs0 | ⟨hall, _⟩
-            · rw [hs0] at hsa; cases hsa
-            · exact absurd hi (hall i)
-          · exact hun
-        have hub : A.Unassigned (I.b i) := by
-          rcases (A.dump_self_iff s (I.b i)).mp (hmem _ hb).1 with hsb | hun
-          · rcases hs with hs0 | ⟨hall, _⟩
-            · rw [hs0] at hsb; cases hsb
-            · exact absurd hi (hall i)
-          · exact hun
-        rw [hC i hi hab hua hub]
+        -- each slot in the sink's bundle is either the sink's own good or unassigned
+        have hslot : ∀ g', I.has (A.dump s) s (some g) g' = true → A.ρ s = some g' ∨ A.Unassigned g' :=
+          fun g' h => (A.dump_self_iff s g').mp (hmem _ h).1
+        -- an unassigned slot is worthless to the unassigned agent `i`, by (P1)
+        have hsv0 : ∀ g', I.Rel i g' → A.Unassigned g' → I.sv i g' = 0 := by
+          intro g' hrel hun
+          apply Nat.eq_zero_of_not_pos
+          intro hpos
+          obtain ⟨j, hj⟩ := hP1 i hi g' hrel hpos
+          exact hun j hj
+        -- a slot that is the sink's own good is ineligible for `i`, by `SinkOK`
+        have hsink : ∀ g', I.Rel i g' → A.ρ s = some g' → I.sv i g' = 0 ∧ I.complB i = false := by
+          intro g' hrel hsg
+          rcases hs with hs0 | ⟨g0, hg0, _, hok⟩
+          · rw [hs0] at hsg; cases hsg
+          · rw [hg0] at hsg
+            have e := Option.some.inj hsg
+            subst e
+            exact hok i hi hrel
+        have hzero : I.f i true true = 0 := by
+          rcases hslot (I.a i) ha with hsa | hua
+          · rcases hslot (I.b i) hb with hsb | hub
+            · exfalso
+              rw [hsa] at hsb
+              exact hab (Option.some.inj hsb)
+            · obtain ⟨h1, hc⟩ := hsink (I.a i) (Or.inl rfl) hsa
+              exact I.pair_zero_of_not_compl i hab h1 (hsv0 (I.b i) (Or.inr rfl) hub) hc
+          · rcases hslot (I.b i) hb with hsb | hub
+            · obtain ⟨h2, hc⟩ := hsink (I.b i) (Or.inr rfl) hsb
+              exact I.pair_zero_of_not_compl i hab (hsv0 (I.a i) (Or.inl rfl) hua) h2 hc
+            · exact hC i hi hab hua hub
+        rw [hzero]
         exact Nat.le_refl _
   · rw [A.other_val s i j hjs g hg]
     exact Nat.zero_le _
@@ -342,6 +372,9 @@ structure InvUpto (t : Nat) (ρ : Rho I) : Prop where
     (∀ j, ρ j ≠ some (I.b i)) → I.f i true true = 0
   unproc : ∀ i : Fin I.n, t ≤ i.val → ρ i = none
   later : ∀ i g, ρ i = some g → ∀ j g', ρ j = some g' → i.val < j.val → I.sv i g' ≤ I.sv i g
+  /-- Every eligible slot of a processed-but-unassigned agent is held by an earlier-processed agent. -/
+  holders : ∀ x : Fin I.n, x.val < t → ρ x = none → ∀ g, I.Rel x g → eligB I x g = true →
+    ∃ y, ρ y = some g ∧ y.val < x.val
 
 /-- What one step guarantees, stated once for both slots. -/
 theorem step_facts (ρ : Rho I) (i : Fin I.n) (_hi : ρ i = none) :
@@ -392,6 +425,17 @@ theorem step_facts (ρ : Rho I) (i : Fin I.n) (_hi : ρ i = none) :
 theorem elig_of_pos (i : Fin I.n) (g : Fin I.m) (h : 0 < I.sv i g) : eligB I i g = true := by
   unfold eligB; simp [h]
 
+/-- An ineligible slot is worthless as a singleton, and its agent is not complementary. -/
+theorem elig_false (i : Fin I.n) (g : Fin I.m) (h : eligB I i g = false) :
+    I.sv i g = 0 ∧ I.complB i = false := by
+  unfold eligB at h
+  cases h1 : decide (0 < I.sv i g) with
+  | true => rw [h1] at h; cases h
+  | false =>
+    cases h2 : I.complB i with
+    | true => rw [h1, h2] at h; cases h
+    | false => exact ⟨Nat.eq_zero_of_not_pos (of_decide_eq_false h1), rfl⟩
+
 theorem step_inv (t : Nat) (ρ : Rho I) (hρ : InvUpto I t ρ) (i : Fin I.n) (hi : i.val = t) :
     InvUpto I (t+1) (step I ρ i) := by
   have hnone : ρ i = none := hρ.unproc i (by omega)
@@ -406,7 +450,7 @@ theorem step_inv (t : Nat) (ρ : Rho I) (hρ : InvUpto I t ρ) (i : Fin I.n) (hi
       rcases hg with e | e
       · subst e; rw [hf, he] at hca; cases hca
       · subst e; rw [hf, he] at hcb; cases hcb
-    refine ⟨hρ.rel, hρ.inj, ?_, hρ.p2, ?_, ?_, hρ.later⟩
+    refine ⟨hρ.rel, hρ.inj, ?_, hρ.p2, ?_, ?_, hρ.later, ?_⟩
     · intro i' hlt h0 g hg hpos
       by_cases e : i'.val = t
       · have e' : i' = i := Fin.ext (by omega)
@@ -437,9 +481,20 @@ theorem step_inv (t : Nat) (ρ : Rho I) (hρ : InvUpto I t ρ) (i : Fin I.n) (hi
       · exact hρ.cfix i' (by omega) h0 hab hua hub
     · intro i' hle
       exact hρ.unproc i' (by omega)
+    · intro x hlt h0 g hg he
+      by_cases e : x.val = t
+      · have e' : x = i := Fin.ext (by omega)
+        subst e'
+        obtain ⟨y', hy'⟩ := hnotfree g hg he
+        refine ⟨y', hy', ?_⟩
+        apply Classical.byContradiction
+        intro hge
+        have := hρ.unproc y' (Nat.le_of_not_lt (fun h => hge (by omega)))
+        rw [this] at hy'; cases hy'
+      · exact hρ.holders x (by omega) h0 g hg he
   · rw [heq]
     show InvUpto I (t+1) (fun k => if k = i then some g else ρ k)
-    refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+    refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
     · intro k g' hk
       change (if k = i then some g else ρ k) = some g' at hk
       by_cases e : k = i
@@ -516,13 +571,25 @@ theorem step_inv (t : Nat) (ρ : Rho I) (hρ : InvUpto I t ρ) (i : Fin I.n) (hi
           have hj0 := hρ.unproc j (by omega)
           rw [hj0] at hj; cases hj
         · rw [ifn ek] at hk; exact hρ.later k g0 hk j g' hj hlt
+    · intro x hlt h0 g' hg' he
+      change (if x = i then some g else ρ x) = none at h0
+      by_cases e : x = i
+      · rw [ifp e] at h0; cases h0
+      · rw [ifn e] at h0
+        have hlt' : x.val < t := by
+          have : x.val ≠ t := fun ee => e (Fin.ext (by omega))
+          omega
+        obtain ⟨y, hy, hyx⟩ := hρ.holders x hlt' h0 g' hg' he
+        have hyi : y ≠ i := by intro ee; rw [ee, hnone] at hy; cases hy
+        exact ⟨y, by show (if y = i then some g else ρ y) = some g'; rw [ifn hyi]; exact hy, hyx⟩
 
 theorem phase1Upto_inv : ∀ (t : Nat) (h : t ≤ I.n), InvUpto I t (phase1Upto I t h)
   | 0, _ =>
     ⟨fun _ _ hk => by simp [phase1Upto] at hk, fun _ _ _ hk => by simp [phase1Upto] at hk,
      fun _ hi => absurd hi (Nat.not_lt_zero _), fun _ _ hk => by simp [phase1Upto] at hk,
      fun _ hi => absurd hi (Nat.not_lt_zero _), fun _ _ => rfl,
-     fun _ _ hk => by simp [phase1Upto] at hk⟩
+     fun _ _ hk => by simp [phase1Upto] at hk,
+     fun _ hi => absurd hi (Nat.not_lt_zero _)⟩
   | t+1, h => step_inv I t _ (phase1Upto_inv t (Nat.le_of_succ_le h)) ⟨t, h⟩ rfl
 
 def toPA (ρ : Rho I) (h : InvUpto I I.n ρ) : PA I := ⟨ρ, h.rel, h.inj⟩
@@ -563,11 +630,11 @@ theorem mrdM_efx0 (hn : 0 < I.n) : I.EFX0 (mrdM I hn) := by
       intro i hi; have := findFin_none _ _ hf i; simp at this; exact this hi
     rw [dumpE_eq I _ hinv (lastAgent I hn)]
     apply (toPA I _ hinv).dump_efx0 hP1 hP2 hC (lastAgent I hn)
-    refine Or.inr ⟨hall, ?_⟩
+    apply Or.inr
     cases hL : phase1 I (lastAgent I hn) with
     | none => exact absurd hL (hall _)
     | some g =>
-      refine ⟨g, hL, ?_⟩
+      refine ⟨g, hL, ?_, fun i hi => absurd hi (hall i)⟩
       intro i hi
       cases hi' : phase1 I i with
       | none => exact absurd hi' (hall i)
@@ -584,6 +651,61 @@ theorem mrdM_efx0 (hn : 0 < I.n) : I.EFX0 (mrdM I hn) := by
             show i.val < I.n - 1
             omega
           exact hinv.later i g0 hi' (lastAgent I hn) g hL hlt
+
+/-- **The simplest form of the algorithm**: greedy Phase 1, then every unassigned good goes to the
+agent processed last, whether or not that agent holds a good. -/
+def mrdML (hn : 0 < I.n) : I.Alloc := dumpE I (phase1 I) (lastAgent I hn)
+
+theorem mrdML_efx0 (hn : 0 < I.n) : I.EFX0 (mrdML I hn) := by
+  have hinv : InvUpto I I.n (phase1 I) := phase1Upto_inv I I.n (Nat.le_refl _)
+  have hP1 : (toPA I _ hinv).P1 := fun i hi g hg hp => hinv.p1 i i.isLt hi g hg hp
+  have hP2 : (toPA I _ hinv).P2 := hinv.p2
+  have hC : (toPA I _ hinv).Cfix := fun i hi hab hua hub => hinv.cfix i i.isLt hi hab hua hub
+  unfold mrdML
+  rw [dumpE_eq I _ hinv (lastAgent I hn)]
+  apply (toPA I _ hinv).dump_efx0 hP1 hP2 hC (lastAgent I hn)
+  cases hL : phase1 I (lastAgent I hn) with
+  | none => exact Or.inl hL
+  | some g =>
+    -- an unassigned agent finds `g` ineligible: otherwise its holder, the last agent, would have
+    -- been processed earlier
+    have hinel : ∀ i, phase1 I i = none → I.Rel i g → eligB I i g = false := by
+      intro i hi hrel
+      cases he : eligB I i g with
+      | false => rfl
+      | true =>
+        exfalso
+        obtain ⟨y, hy, hlt⟩ := hinv.holders i i.isLt hi g hrel he
+        have hyl : y = lastAgent I hn := hinv.inj y (lastAgent I hn) g hy hL
+        rw [hyl] at hlt
+        have h1 := i.isLt
+        have h2 : (lastAgent I hn).val = I.n - 1 := rfl
+        omega
+    refine Or.inr ⟨g, hL, ?_, ?_⟩
+    · intro i hi
+      cases hi' : phase1 I i with
+      | none =>
+        rw [(toPA I _ hinv).util_none i hi']
+        by_cases hrel : I.Rel i g
+        · rw [(elig_false I i g (hinel i hi' hrel)).1]
+          exact Nat.le_refl _
+        · rw [I.sv_irrel i g hrel]
+          exact Nat.le_refl _
+      | some g0 =>
+        rw [(toPA I _ hinv).util_some i g0 hi']
+        by_cases e : i = lastAgent I hn
+        · have hh : (toPA I (phase1 I) hinv).ρ i = some g := by
+            show phase1 I i = some g
+            rw [e]; exact hL
+          exact absurd hh hi
+        · have hlt : i.val < (lastAgent I hn).val := by
+            have h1 : i.val ≠ I.n - 1 := fun h => e (Fin.ext h)
+            have h2 := i.isLt
+            show i.val < I.n - 1
+            omega
+          exact hinv.later i g0 hi' (lastAgent I hn) g hL hlt
+    · intro i hi hrel
+      exact elig_false I i g (hinel i hi hrel)
 
 end Exec
 
@@ -687,6 +809,19 @@ theorem main_theorem (hn : 0 < I.n) :
     ∃ X : I.Alloc, I.EFX0 X ∧ ∃ s, ∀ j, j ≠ s → ∀ g g', X g = j → X g' = j → g = g' :=
   ⟨mrdM I hn, mrdM_efx0 I hn, mrdM_shape I hn⟩
 
+theorem mrdML_shape (hn : 0 < I.n) :
+    ∃ s, ∀ j, j ≠ s → ∀ g g', mrdML I hn g = j → mrdML I hn g' = j → g = g' := by
+  have hinv : InvUpto I I.n (phase1 I) := phase1Upto_inv I I.n (Nat.le_refl _)
+  unfold mrdML
+  refine ⟨lastAgent I hn, fun j hjs g g' hg hg' => ?_⟩
+  rw [dumpE_eq I _ hinv (lastAgent I hn)] at hg hg'
+  exact dump_thin_other I _ (lastAgent I hn) j hjs g g' hg hg'
+
+/-- **Headline theorem, simplest algorithm, monotone version.** -/
+theorem main_theorem_L (hn : 0 < I.n) :
+    ∃ X : I.Alloc, I.EFX0 X ∧ ∃ s, ∀ j, j ≠ s → ∀ g g', X g = j → X g' = j → g = g' :=
+  ⟨mrdML I hn, mrdML_efx0 I hn, mrdML_shape I hn⟩
+
 end Shape
 
 end MRDM
@@ -695,3 +830,5 @@ end MRDM
 #print axioms MRDM.mrdM_efx0
 #print axioms MRDM.exM_ok
 #print axioms MRDM.main_theorem
+#print axioms MRDM.mrdML_efx0
+#print axioms MRDM.main_theorem_L

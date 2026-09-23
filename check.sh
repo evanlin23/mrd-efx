@@ -11,7 +11,7 @@ sorries=$(grep -ci 'sorry' build.log || true)
 axioms=$(grep -c 'depends on axioms' build.log || true)
 bad_axioms=$(grep 'depends on axioms' build.log | grep -v -c -E '\[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]' || true)
 echo "lake build exit=$status errors=$errors warnings=$warnings sorry-mentions=$sorries axiom-lines=$axioms nonstandard-axiom-lines=$bad_axioms"
-if [ "$status" != "0" ] || [ "$errors" != "0" ] || [ "$warnings" != "0" ] || [ "$sorries" != "0" ] || [ "$bad_axioms" != "0" ] || [ "$axioms" -lt 35 ]; then
+if [ "$status" != "0" ] || [ "$errors" != "0" ] || [ "$warnings" != "0" ] || [ "$sorries" != "0" ] || [ "$bad_axioms" != "0" ] || [ "$axioms" -lt 40 ]; then
   echo "CHECK FAILED"; exit 1
 fi
 echo "CHECK PASSED: $axioms theorems verified with standard axioms only"

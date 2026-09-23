@@ -1,7 +1,7 @@
 name: verify
 on: [push, pull_request]
 jobs:
-  build:
+  check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -12,4 +12,4 @@ jobs:
       - name: Build and audit
         run: ./check.sh
       - name: Native random test
-        run: lake build mrdtest && lake exe mrdtest 20000 10 12 1
+        run: lake exe mrdtest 20000 12 14 7

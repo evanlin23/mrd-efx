@@ -1740,6 +1740,59 @@ theorem main_theorem (hn : 0 < I.n) (h : ∀ i, numRelevant I i ≤ 2) :
     ∃ X : I.Alloc, I.EFX0 X ∧ ∃ s, ∀ j, j ≠ s → ∀ g g', X g = j → X g' = j → g = g' :=
   ⟨mrdG I hn, mrdG_efx0 I (twoRelevant_of_count I h) hn, mrdG_shape I hn⟩
 
+/-- **The last-processed agent is always a source**, assigned or not: an arc from an assigned agent
+contradicts `phase1_later`, an arc from an unassigned agent contradicts `phase1_holders`. -/
+theorem lastAgent_source_all (hn : 0 < I.n) :
+    (toPAssign I (phase1 I) (phase1_inv I)).IsSource (lastAgent I hn) := by
+  intro i harc
+  obtain ⟨g, hg, hlt⟩ := harc
+  have hg' : phase1 I (lastAgent I hn) = some g := hg
+  rw [toPAssign_util] at hlt
+  cases hi : phase1 I i with
+  | none =>
+    have hu : utilE I (phase1 I) i = 0 := by simp [utilE, hi]
+    rw [hu] at hlt
+    have hy := phase1_holders I i hi g hlt (lastAgent I hn) hg'
+    have h1 := i.isLt
+    have h2 : (lastAgent I hn).val = I.n - 1 := rfl
+    omega
+  | some g0 =>
+    have hu : utilE I (phase1 I) i = I.v i g0 := by simp [utilE, hi]
+    rw [hu] at hlt
+    by_cases e : i = lastAgent I hn
+    · rw [e, hg'] at hi
+      cases hi
+      exact Nat.lt_irrefl _ hlt
+    · have hlt' : i.val < (lastAgent I hn).val := by
+        have h1 : i.val ≠ I.n - 1 := fun h => e (Fin.ext h)
+        have h2 := i.isLt
+        show i.val < I.n - 1
+        omega
+      exact absurd hlt (Nat.not_lt.mpr (phase1_later I i g0 hi (lastAgent I hn) g hg' hlt'))
+
+/-- **The simplest form of the algorithm**: greedy Phase 1, then every unassigned good goes to the
+agent processed last, whether or not that agent holds a good. -/
+def mrdL (hn : 0 < I.n) : I.Alloc := dumpE I (phase1 I) (lastAgent I hn)
+
+theorem mrdL_efx0 (hI : I.TwoRelevant) (hn : 0 < I.n) : I.EFX0 (mrdL I hn) := by
+  unfold mrdL
+  have hinv := phase1_inv I
+  rw [dumpE_eq I _ hinv (lastAgent I hn)]
+  exact (toPAssign I _ hinv).dump_efx0 hI hinv.p1 hinv.p2 _ (lastAgent_source_all I hn)
+
+theorem mrdL_shape (hn : 0 < I.n) :
+    ∃ s, ∀ j, j ≠ s → ∀ g g', mrdL I hn g = j → mrdL I hn g' = j → g = g' := by
+  unfold mrdL
+  refine ⟨lastAgent I hn, fun j hjs g g' hg hg' => ?_⟩
+  rw [dumpE_eq I _ (phase1_inv I) (lastAgent I hn)] at hg hg'
+  exact dump_thin_other I _ (lastAgent I hn) j hjs g g' hg hg'
+
+/-- **Headline theorem, simplest algorithm**: the allocation produced by "greedy, then the last agent
+takes the rest" is strongly EFX₀ with all bundles but one of size at most one. -/
+theorem main_theorem_L (hn : 0 < I.n) (h : ∀ i, numRelevant I i ≤ 2) :
+    ∃ X : I.Alloc, I.EFX0 X ∧ ∃ s, ∀ j, j ≠ s → ∀ g g', X g = j → X g' = j → g = g' :=
+  ⟨mrdL I hn, mrdL_efx0 I (twoRelevant_of_count I h) hn, mrdL_shape I hn⟩
+
 end Spec
 
 /-! ## Worked examples, at the `Prop` level -/
@@ -1809,3 +1862,6 @@ end MRD
 #print axioms MRD.mrd_correct
 #print axioms MRD.efx0_of_invariants
 #print axioms MRD.main_theorem
+#print axioms MRD.lastAgent_source_all
+#print axioms MRD.mrdL_efx0
+#print axioms MRD.main_theorem_L
